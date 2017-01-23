@@ -43,7 +43,6 @@ function _taxonomy_menu_get_mlid($tid, $vid) {
  *   array(tid => mlid)
  */
 function _taxonomy_menu_get_menu_items($vid) {
-
   $result = db_query('SELECT tid, mlid FROM {taxonomy_menu} WHERE vid = :vid', array(':vid' => $vid));
   $menu_items = array();
   $menu_items = $result->fetchAllKeyed();
@@ -58,13 +57,14 @@ function _taxonomy_menu_get_menu_items($vid) {
   *   vocabulary's id
   */
 function _taxonomy_menu_delete_all($vid) {
-  $menu_terms = _taxonomy_menu_get_menu_items($vid);
-  if (!empty($menu_terms)) {
-    foreach ($menu_terms as $tid => $mlid) {
-      db_delete('menu_links')
-        ->condition('mlid', $mlid)
-        ->execute();
+  $menu_items = _taxonomy_menu_get_menu_items($vid);
+  if (!empty($menu_items)) {
+    // Deletes all the menu items.
+    $mlids = array_keys($menu_items);
+    foreach ($mlids as $mlid) {
+      menu_link_delete($mlid);
     }
+    // Deletes all the taxonoy_menu items.
     db_delete('taxonomy_menu')
       ->condition('vid', $vid)
       ->execute();
