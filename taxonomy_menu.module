@@ -614,6 +614,7 @@ function taxonomy_menu_handler($op, $args = array(), $node = NULL, $item = array
  *     'mlid' => if this is filled in then the mlid will be updated
  */
 function _taxonomy_menu_save($item) {
+  if (empty($item)) return;
   $insert = TRUE;
 
   $flatten_menu = variable_get(_taxonomy_menu_build_variable('flat', $item['vid']));
@@ -925,6 +926,7 @@ function _taxonomy_menu_children_has_nodes($tid, $vid, $return = FALSE) {
  * @return array
  */
 function _taxonomy_menu_item($item) {
+  if (empty($item)) return;
   // if tid is 0 then do not change any settings
   if ($item['tid'] > 0) {
     // get the number of node attached to this term
