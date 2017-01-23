@@ -1116,7 +1116,7 @@ function taxonomy_menu_taxonomy_menu_options() {
     '#title' => t('Add item for vocabulary'),
     '#description' => t('Shows the vocabulary name as the top level menu item of the taxonomy menu.'),
     'default' => FALSE,
-    '#disabled' => TRUE,
+    '#access' => FALSE,
   );
 
   $options['voc_item_description'] = array(
@@ -1148,7 +1148,7 @@ function taxonomy_menu_taxonomy_menu_options() {
     '#title' => t('Custom name for vocabulary item'),
     '#description' => t('Changes the name of the vocabulary item (if enabled above). Leave blank to use the name of the vocabulary.'),
     'default' => '',
-    '#disabled' => TRUE,
+    '#access' => FALSE,
   );
 
   $options['display_descendants'] = array(
@@ -1161,7 +1161,7 @@ function taxonomy_menu_taxonomy_menu_options() {
     '#title' => t("Use 'all' at the end of URL"),
     'default' => FALSE,
     '#description' => t('This changes tid+tid+tid to "All" in term when <em>Display descendants</em> has been selected.<br />Only used if <em>Menu path type</em> is "Default path".<br />Works with default taxonomy page.'),
-    '#disabled' => TRUE,
+    '#access' => FALSE,
   );
 
   return $options;
