@@ -114,12 +114,15 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
  */
 function taxonomy_menu_vocab_submit($form, &$form_state) {
   $vid = $form_state['values']['vid'];
-  $changed = FALSE;
+  $variable_name = _taxonomy_menu_build_variable('vocab_menu', $vid);
+  $current_setting = variable_get($variable_name, FALSE);
 
-  if (is_numeric($form_state['values']['taxonomy_menu']['vocab_parent'])) {
-    // Menu location has been set to disabled, don't want to throw notices
-    $form_state['values']['taxonomy_menu']['vocab_parent'] = '0:0';
+  // If the menu had never been enabled, skip the rest.
+  if ($current_setting === FALSE && is_numeric($form_state['values']['taxonomy_menu']['vocab_parent'])) {
+    return;
   }
+
+  $changed = FALSE;
 
   // Split the menu location into menu name and menu item id.
   list($vocab_parent['vocab_menu'], $vocab_parent['vocab_parent']) = explode(':', $form_state['values']['taxonomy_menu']['vocab_parent']);
@@ -130,7 +133,6 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
   $changed_path = FALSE;
 
   // Set the menu name and check for changes
-  $variable_name = _taxonomy_menu_build_variable('vocab_menu', $vid);
   if (_taxonomy_menu_check_variable($variable_name, $vocab_parent['vocab_menu'])) {
     $changed_menu = TRUE;
   }
