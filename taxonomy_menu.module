@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * It generates menu links for all selected taxonomy terms
@@ -14,15 +13,15 @@ require_once(DRUPAL_ROOT . '/' . drupal_get_path('module', 'taxonomy_menu') . '/
 /**
  * Implements hook_form_alter().
  *
- * Modify the form at admin/content/taxonomy/edit/vocabulary/xx. We add
- * our taxonomy_menu options in here on a per-vocab basis.
+ * Add additional taxonomy_menu options to the vocab form.
  */
 function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'taxonomy_form_vocabulary') {
-    // do not alter on deletion
+    // Do not alter on deletion
     if (isset($form_state['confirm_delete']) && isset($form_state['values']['vid'])) {
       return;
     }
+
     // Choose a menu to add link items to.
     $menus = menu_get_menus();
     array_unshift($menus, t('- Disabled -'));
@@ -417,15 +416,17 @@ function taxonomy_menu_node_insert($node) {
  * Implements hook_node_update().
  */
 function taxonomy_menu_node_update($node) {
-  $terms_old = &drupal_static('taxonomy_menu_terms_old');
-  //we use this direct table pull to avoid the cache and because
-  //free tags are not formatted in a matter where extrating the
-  //tid's is easy
-  $terms_new = _taxonomy_menu_get_node_terms($node);
+  if (isset($node->original->status) and $node->original->status != $node->status) {
+    $terms_old = &drupal_static('taxonomy_menu_terms_old');
+    //we use this direct table pull to avoid the cache and because
+    //free tags are not formatted in a matter where extrating the
+    //tid's is easy
+    $terms_new = _taxonomy_menu_get_node_terms($node);
 
-  //merge current terms and previous terms to update both menu items.
-  $terms = array_unique(array_merge((array)$terms_new, (array)$terms_old));
-  _taxonomy_menu_nodeapi_helper('update', $terms, $node);
+    //merge current terms and previous terms to update both menu items.
+    $terms = array_unique(array_merge((array)$terms_new, (array)$terms_old));
+    _taxonomy_menu_nodeapi_helper('update', $terms, $node);
+  }
 }
 
 /**
