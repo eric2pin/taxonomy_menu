@@ -26,9 +26,6 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
     $menus = menu_get_menus();
     array_unshift($menus, t('- Disabled -'));
 
-    // Options for path if tokens are not enabled.
-    $paths = _taxonomy_menu_get_paths();
-
     $form['taxonomy_menu'] = array(
       '#type' => 'fieldset',
       '#collapsible' => TRUE,
@@ -64,13 +61,25 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
       '#attributes' => array('class' => array('menu-title-select')),
     );
 
-    $form['taxonomy_menu']['path'] = array(
-      '#type' => 'select',
-      '#title' => t('Menu path type'),
-      '#default_value' => isset($form['vid']['#value']) ? variable_get(_taxonomy_menu_build_variable('path', $form['vid']['#value']), 0) : 0,
-      '#options' => $paths,
-      '#description' => t('The path will be taxonomy/term/tid if <em>Default</em> has been selected.<br />The menu path will be passed through drupal_get_path_alias() function so all aliases will be applied.'),
-    );
+    // Options for path if tokens are not enabled.
+    $paths = _taxonomy_menu_get_paths();
+
+    if (count($paths) == 1) {
+      $path_keys = array_keys($paths);
+      $form['taxonomy_menu']['path'] = array(
+        '#type' => 'value',
+        '#value' => reset($path_keys),
+      );
+    }
+    else {
+      $form['taxonomy_menu']['path'] = array(
+        '#type' => 'select',
+        '#title' => t('Menu path type'),
+        '#default_value' => isset($form['vid']['#value']) ? variable_get(_taxonomy_menu_build_variable('path', $form['vid']['#value']), 0) : 0,
+        '#options' => $paths,
+        '#description' => t('The path will be taxonomy/term/tid if <em>Default</em> has been selected.<br />The menu path will be passed through drupal_get_path_alias() function so all aliases will be applied.'),
+      );
+    }
 
     //get taxonomy menu form options
     if (isset($form['vid']) && $form['vid']['#value']) {
