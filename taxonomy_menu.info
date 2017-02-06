@@ -1,6 +1,6 @@
 name           = Taxonomy menu
 description    = Adds links to taxonomy terms into a menu.
-core           = 7.x
+backdrop       = 1.x
 
 dependencies[] = taxonomy
 dependencies[] = menu
