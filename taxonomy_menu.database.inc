@@ -120,7 +120,7 @@ function _taxonomy_menu_get_node_terms($node) {
  */
 function _taxonomy_menu_get_parents($tid) {
   $output = array();
-  $result = taxonomy_get_parents($tid);
+  $result = taxonomy_term_load_parents($tid);
   foreach ($result as $key => $item) {
     $output[] = $key;
   }
