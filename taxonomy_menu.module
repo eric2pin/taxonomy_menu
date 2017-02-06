@@ -168,7 +168,7 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
     }
     // If setting has changed and a menu item is enabled, then update all of the menu items.
     elseif ($changed && variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE)) {
-      $message = _taxonomy_menu_update_link_items($vid);
+      $message = _taxonomy_menu_update_link_items($vocabulary);
     }
 
     // Do a full menu rebuild in case we have removed the menu or moved it between menus.
@@ -804,7 +804,7 @@ function _taxonomy_menu_children_has_nodes($tid, $vid, $return = FALSE) {
  * Helper function: Inserts and updates menu along with taxonomy changes.
  *
  * @param array $item
- *   Taxonomy meny item.
+ *   Taxonomy menu item.
  *
  * @return array
  *   Taxonomy meny item.
@@ -819,18 +819,18 @@ function _taxonomy_menu_item($item) {
     // If hide menu is selected and the term count is 0 and the term has no
     // children then do not create the menu item.
     if ($num == 0 &&
-      variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $item['vid']), FALSE) &&
-      !_taxonomy_menu_children_has_nodes($item['tid'], $item['vid'])) {
+      variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $item['vocabulary']), FALSE) &&
+      !_taxonomy_menu_children_has_nodes($item['tid'], $item['vocabulary'])) {
 
       $item['remove'] = TRUE;
       return $item;
     }
 
     // If display number is selected and $num > 0 then change the title.
-    if (variable_get(_taxonomy_menu_build_variable('display_num', $item['vid']), FALSE)) {
+    if (variable_get(_taxonomy_menu_build_variable('display_num', $item['vocabulary']), FALSE)) {
       // If number > 0 and display descendants, then count all of the children.
-      if (variable_get(_taxonomy_menu_build_variable('display_descendants', $item['vid']), FALSE)) {
-        $num = taxonomy_menu_term_count_nodes($item['tid'], $item['vid']);
+      if (variable_get(_taxonomy_menu_build_variable('display_descendants', $item['vocabulary']), FALSE)) {
+        $num = taxonomy_menu_term_count_nodes($item['tid'], $item['vocabulary']);
       }
       $item['name'] .= " ($num)";
     }
@@ -844,17 +844,17 @@ function _taxonomy_menu_item($item) {
  *
  * @param int $tid
  *   Taxonomy term ID.
- * @param int $vid
- *   Vocabulary ID.
+ * @param string $vocabulary
+ *   Vocabulary machine name.
  *
  * @return int
  *   Count for how many nodes are in that taxonomy category.
  */
-function taxonomy_menu_term_count_nodes($tid, $vid, $count = 0) {
+function taxonomy_menu_term_count_nodes($tid, $vocabulary, $count = 0) {
   $count += _taxonomy_menu_term_count($tid);
-  $children = taxonomy_term_load_children($tid, $vid);
+  $children = taxonomy_term_load_children($tid, $vocabulary);
   foreach ($children as $tid => $term) {
-    $count = taxonomy_menu_term_count_nodes($term->tid, $term->vid, $count);
+    $count = taxonomy_menu_term_count_nodes($term->tid, $term->vocabulary, $count);
   }
   return $count;
 }
@@ -1016,7 +1016,7 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
       // Only translate when term exist (may occur with stray menu item).
       if ($t) {
         // Only translate when translation mode is set to localize.
-        if (i18n_taxonomy_vocabulary_mode($t->vid, I18N_MODE_LOCALIZE)) {
+        if (i18n_taxonomy_vocabulary_mode($t->vocabulary, I18N_MODE_LOCALIZE)) {
           // This is a term.
           if ($t->tid > 0) {
             $term = taxonomy_term_load($t->tid);
@@ -1025,14 +1025,14 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
 
             // If hide menu is selected and the term count is 0 and the term
             // has no children then do not create the menu item.
-            if ($num == 0 && variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $t->vid), FALSE) && !_taxonomy_menu_children_has_nodes($t->tid, $t->vid)) {
+            if ($num == 0 && variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $t->vocabulary), FALSE) && !_taxonomy_menu_children_has_nodes($t->tid, $t->vocabulary)) {
               $display_num = '';
             }
             // If display number is selected and $num > 0 then change the title.
-            elseif (variable_get(_taxonomy_menu_build_variable('display_num', $t->vid), FALSE)) {
+            elseif (variable_get(_taxonomy_menu_build_variable('display_num', $t->vocabulary), FALSE)) {
               // If number > 0 and display descendants, then count all children.
-              if (variable_get(_taxonomy_menu_build_variable('display_descendants', $t->vid), FALSE)) {
-                $num = taxonomy_menu_term_count_nodes($t->tid, $t->vid);
+              if (variable_get(_taxonomy_menu_build_variable('display_descendants', $t->vocabulary), FALSE)) {
+                $num = taxonomy_menu_term_count_nodes($t->tid, $t->vocabulary);
               }
               $display_num = " ($num)";
             }
@@ -1044,14 +1044,14 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
 
             $term = i18n_taxonomy_localize_terms($term);
             $item['title'] = $item['link_title'] = $term->name . $display_num;
-            if (variable_get(_taxonomy_menu_build_variable('term_item_description', $t->vid), FALSE)) {
+            if (variable_get(_taxonomy_menu_build_variable('term_item_description', $t->vocabulary), FALSE)) {
               $item['options']['attributes']['title'] = $term->description;
             }
           }
           // Is a vocabulary.
           else {
-            $vocab = taxonomy_vocabulary_load($t->vid);
-            $item['title'] = i18n_string('taxonomy:vocabulary:' . $vocab->vid . ':name', $vocab->name);
+            $vocab = taxonomy_vocabulary_load($t->vocabulary);
+            $item['title'] = i18n_string('taxonomy:vocabulary:' . $vocab->vocabulary . ':name', $vocab->name);
           }
         }
       }
