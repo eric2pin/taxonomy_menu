@@ -339,7 +339,6 @@ function taxonomy_menu_taxonomy_vocabulary_delete($vocabulary) {
     'taxonomy_menu_hide_empty_terms_',
     'taxonomy_menu_expanded_',
     'taxonomy_menu_rebuild_',
-    'taxonomy_menu_display_descendants_',
     'taxonomy_menu_sync_',
   );
   foreach ($variable_prefixes as $prefix) {
@@ -828,10 +827,6 @@ function _taxonomy_menu_item($item) {
 
     // If display number is selected and $num > 0 then change the title.
     if (variable_get(_taxonomy_menu_build_variable('display_num', $item['vocabulary']), FALSE)) {
-      // If number > 0 and display descendants, then count all of the children.
-      if (variable_get(_taxonomy_menu_build_variable('display_descendants', $item['vocabulary']), FALSE)) {
-        $num = taxonomy_menu_term_count_nodes($item['tid'], $item['vocabulary']);
-      }
       $item['name'] .= " ($num)";
     }
   }
@@ -994,11 +989,6 @@ function taxonomy_menu_taxonomy_menu_options() {
     'default' => FALSE,
   );
 
-  $options['display_descendants'] = array(
-    '#title' => t('Display descendants: change the path to taxonomy/term/tid+tid+tid for all terms thave have child terms.'),
-    'default' => FALSE,
-  );
-
   return $options;
 }
 
@@ -1030,10 +1020,6 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
             }
             // If display number is selected and $num > 0 then change the title.
             elseif (variable_get(_taxonomy_menu_build_variable('display_num', $t->vocabulary), FALSE)) {
-              // If number > 0 and display descendants, then count all children.
-              if (variable_get(_taxonomy_menu_build_variable('display_descendants', $t->vocabulary), FALSE)) {
-                $num = taxonomy_menu_term_count_nodes($t->tid, $t->vocabulary);
-              }
               $display_num = " ($num)";
             }
 

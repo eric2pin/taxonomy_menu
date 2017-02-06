@@ -63,7 +63,6 @@ function taxonomy_menu_uninstall() {
     'hide_empty_terms',
     'expanded',
     'rebuild',
-    'display_descendants',
     'sync',
     'flat',
     'max_depth',
@@ -132,4 +131,5 @@ function taxonomy_menu_update_1000() {
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_name_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_description_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_end_all_%'");
+  db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_display_descendants_%'");
 }
