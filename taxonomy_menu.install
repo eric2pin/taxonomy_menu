@@ -59,14 +59,12 @@ function taxonomy_menu_uninstall() {
   $variable_suffixes = array(
     'vocab_menu',
     'vocab_parent',
-    'voc_item',
     'display_num',
     'hide_empty_terms',
     'expanded',
     'rebuild',
     'menu_end_all',
     'display_descendants',
-    'voc_name',
     'sync',
     'end_all',
     'flat',
@@ -132,5 +130,8 @@ function taxonomy_menu_update_1000() {
 
   // Remove unsupported variables.
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_path_%'");
+  db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_%'");
+  db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_name_%'");
+  db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_description_%'");
 
 }
