@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Tests for taxonomy_menu.module.
@@ -36,7 +35,7 @@ class TaxonomyMenuWebTestCase extends DrupalWebTestCase {
   }
 
   /**
-   * Get the first available text format
+   * Get the first available text format.
    */
   function getTextFormat() {
     static $format = NULL;
@@ -47,7 +46,7 @@ class TaxonomyMenuWebTestCase extends DrupalWebTestCase {
   }
 
   /**
-   * Create a new term record
+   * Create a new term record.
    */
   function createNewTerm($vocabulary, $name = NULL, $parent = NULL) {
     $term = new stdClass();
@@ -185,7 +184,7 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
 
     $this->assertResponse(200);
 
-    // By default, auto expand is on : we must find the whole hierarchy
+    // By default, auto expand is on : we must find the whole hierarchy.
     foreach ($this->terms as $term)  {
       $this->assertLink($term->name); // 1st level
       foreach ($term->children as $child) {
@@ -197,7 +196,7 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
       }
     }
 
-    // Set auto expand to off
+    // Set auto expand to off.
     $edit = array();
     $edit['taxonomy_menu[options][expanded]'] = FALSE;
     //$edit['taxonomy_menu[options][rebuild]'] = '1'; // Rebuild menu on submit
@@ -229,7 +228,7 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
           $this->assertNoLink($child->name);
         }
         else {
-          // We must have a link AND the children
+          // We must have a link AND the children.
           $this->assertLink($child->name);
           if ($child->name == "term1_2") {
             foreach ($child->children as $grandchild) {
