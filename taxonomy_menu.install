@@ -13,7 +13,7 @@ function taxonomy_menu_uninstall() {
   db_delete('menu_links')->condition('module', 'taxonomy_menu', '=')->execute();
 
   // Rebuild the menus.
-  variable_set('menu_rebuild_needed', TRUE);
+  state_set('menu_rebuild_needed', TRUE);
 
   // Gets array of more specific variables set by Taxonomy Menu module.
   // This prevents known issue https://www.drupal.org/node/1966684

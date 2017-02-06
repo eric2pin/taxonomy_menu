@@ -207,7 +207,7 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
     }
 
     // Do a full menu rebuild in case we have removed the menu or moved it between menus.
-    variable_set('menu_rebuild_needed', TRUE);
+    state_set('menu_rebuild_needed', TRUE);
     // Only send a message if one has been created.
     if (isset($message) && $message) {
       // $message is sanitized coming out of its source function,
