@@ -5,10 +5,10 @@
  */
 
 // Include the database layer.
-module_load_include('inc', 'taxonomy_menu', 'taxonomy_menu.database');
+require_once(BACKDROP_ROOT . '/' . backdrop_get_path('module', 'taxonomy_menu') . '/taxonomy_menu.database.inc');
 
 // Include the batch functions.
-module_load_include('inc', 'taxonomy_menu', 'taxonomy_menu.database');
+require_once(BACKDROP_ROOT . '/' . backdrop_get_path('module', 'taxonomy_menu') . '/taxonomy_menu.batch.inc');
 
 /**
  * Implements hook_form_alter().
