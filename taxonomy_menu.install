@@ -5,10 +5,47 @@
  */
 
 /**
+ * Implements hook_schema().
+ */
+function taxonomy_menu_schema() {
+  $schema['taxonomy_menu'] = array(
+    'description' => 'Links a taxonomy term to a menu item.',
+    'fields' => array(
+      'mlid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Menu link ID.',
+      ),
+      'tid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Term ID that is linked to the menu.',
+      ),
+      'vocabulary' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The vocabulary machine name to which each term is assigned.',
+      ),
+    ),
+    'primary key' => array('mlid', 'tid'),
+    'indexes' => array(
+      'vocabulary' => array('vocabulary'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
  * Implements hook_uninstall().
  */
 function taxonomy_menu_uninstall() {
-
   // Remove menu items.
   db_delete('menu_links')->condition('module', 'taxonomy_menu', '=')->execute();
 
@@ -32,10 +69,17 @@ function taxonomy_menu_uninstall() {
     'display_descendants',
     'voc_name',
     'sync',
+    'end_all',
+    'flat',
+    'max_depth',
+    'term_item_description',
   );
 
   // Delete variables.
-  $query = db_select('variable', 'v')->fields('v')->execute();
+  $query = db_select('variable', 'v')
+           ->fields('v', array('name', 'value'))
+           ->condition('name', '%' . db_like('taxonomy_menu') . '%', 'LIKE')
+           ->execute();
   $variables = $query->fetchAll();
   foreach ($variables as $variable) {
     // Add check to make sure we only delete variables for Taxonomy Menu,
@@ -50,79 +94,42 @@ function taxonomy_menu_uninstall() {
 }
 
 /**
- * Implements hook_schema().
+ * Implements hook_update_dependencies().
  */
-function taxonomy_menu_schema() {
-
-  $schema['taxonomy_menu'] = array(
-    'description' => 'Links a taxonomy term to a menu item.',
-    'fields' => array(
-      'mlid' => array(
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'The taxonomy terms {menu_link}.mlid.',
-      ),
-      'tid' => array(
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'Tid that is linked to the mlid.',
-      ),
-      'vid' => array(
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'default' => 0,
-        'description' => 'Vid for the tid.',
-      ),
-    ),
-    'primary key' => array('mlid', 'tid'),
-    'indexes' => array(
-      'vid' => array('vid'),
-    ),
+function taxonomy_menu_update_dependencies() {
+  // Do not allow taxonomy module to drop vid column until after we have
+  // updated our table in taxonomy_menu_update_7000().
+  $dependencies['taxonomy'][1001] = array(
+    'taxonomy_menu' => 1000,
   );
-
-  return $schema;
+  return $dependencies;
 }
 
 /**
  * Implements hook_update_last_removed().
  */
 function taxonomy_menu_update_last_removed() {
+  // The last Drupal 7 update that needs to run before upgrading to Backdrop.
   return 7000;
 }
 
 /**
  * Convert vocabulary ids into vocabulary machine names.
  */
-function taxonomy_menu_update_7000() {
-  $variable_prefixes = array(
-    'vocab_menu',
-    'vocab_parent',
-    'voc_item',
-    'display_num',
-    'hide_empty_terms',
-    'expanded',
-    'rebuild',
-    'path',
-    'menu_end_all',
-    'display_descendants',
-    'voc_name',
-    'sync',
+function taxonomy_menu_update_1000() {
+  // Remove the old vid index.
+  db_drop_index('taxonomy_menu', 'vid');
+  // Update the taxonomy_menu table 'vid' column should be varchar 255 'vocabulary'.
+  $spec = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+    'description' => 'The vocabulary machine name to which each term is assigned.',
   );
+  db_change_field('taxonomy_menu', 'vid', 'vocabulary', $spec);
+  // Add the new vocabulary index.
+  db_add_index('taxonomy_menu', 'vocabulary', array('vocabulary'));
 
-  $vocabularies = taxonomy_get_vocabularies();
-  foreach ($vocabularies as $vocabulary) {
-    foreach ($variable_prefixes as $prefix) {
-      $old_name = 'taxonomy_menu_' . $prefix . '_' . $vocabulary->vid;
-      $new_name = 'taxonomy_menu_' . $prefix . '_' . $vocabulary->machine_name;
-      if (($value = variable_get($old_name)) !== NULL) {
-        variable_set($new_name, $value);
-        variable_del($old_name);
-      }
-    }
-  }
+  // Remove unsupported variables. @todo
 }
