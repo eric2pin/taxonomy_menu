@@ -339,7 +339,6 @@ function taxonomy_menu_taxonomy_vocabulary_delete($vocabulary) {
     'taxonomy_menu_hide_empty_terms_',
     'taxonomy_menu_expanded_',
     'taxonomy_menu_rebuild_',
-    'taxonomy_menu_menu_end_all_',
     'taxonomy_menu_display_descendants_',
     'taxonomy_menu_sync_',
   );
@@ -998,13 +997,6 @@ function taxonomy_menu_taxonomy_menu_options() {
   $options['display_descendants'] = array(
     '#title' => t('Display descendants: change the path to taxonomy/term/tid+tid+tid for all terms thave have child terms.'),
     'default' => FALSE,
-  );
-
-  $options['end_all'] = array(
-    '#title' => t("Use 'all' at the end of URL"),
-    'default' => FALSE,
-    '#description' => t('This changes tid+tid+tid to "All" in term when <em>Display descendants</em> has been selected.<br />Only used if <em>Menu path type</em> is "Default path".<br />Works with default taxonomy page.'),
-    '#access' => FALSE,
   );
 
   return $options;

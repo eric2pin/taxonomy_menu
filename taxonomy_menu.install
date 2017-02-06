@@ -63,10 +63,8 @@ function taxonomy_menu_uninstall() {
     'hide_empty_terms',
     'expanded',
     'rebuild',
-    'menu_end_all',
     'display_descendants',
     'sync',
-    'end_all',
     'flat',
     'max_depth',
     'term_item_description',
@@ -133,5 +131,5 @@ function taxonomy_menu_update_1000() {
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_name_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_description_%'");
-
+  db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_end_all_%'");
 }
