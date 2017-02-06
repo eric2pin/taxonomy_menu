@@ -17,6 +17,11 @@ require_once(DRUPAL_ROOT . '/' . drupal_get_path('module', 'taxonomy_menu') . '/
  */
 function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'taxonomy_form_vocabulary') {
+
+    // Add our vertical tabs js.
+    $path = backdrop_get_path('module', 'taxonomy_menu') . '/js/taxonomy_menu.js';
+    $form['additional_settings']['#attached']['js'][] = $path;
+
     // Do not alter on deletion
     if (isset($form_state['confirm_delete']) && isset($form_state['values']['vid'])) {
       return;
@@ -32,6 +37,7 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
       '#title' => t('Taxonomy menu'),
       '#weight' => 10,
       '#tree' => TRUE,
+      '#group' => 'additional_settings',
     );
     // This turns the vocab terms into menu items.
     $item['mlid'] = 0;
