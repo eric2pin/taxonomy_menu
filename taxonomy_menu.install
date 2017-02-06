@@ -64,7 +64,6 @@ function taxonomy_menu_uninstall() {
     'hide_empty_terms',
     'expanded',
     'rebuild',
-    'path',
     'menu_end_all',
     'display_descendants',
     'voc_name',
@@ -131,5 +130,7 @@ function taxonomy_menu_update_1000() {
   // Add the new vocabulary index.
   db_add_index('taxonomy_menu', 'vocabulary', array('vocabulary'));
 
-  // Remove unsupported variables. @todo
+  // Remove unsupported variables.
+  db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_path_%'");
+
 }

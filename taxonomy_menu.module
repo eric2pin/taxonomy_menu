@@ -68,12 +68,6 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
       '#attributes' => array('class' => array('menu-title-select')),
     );
 
-    // @todo remove this as soon as possible.
-    $form['taxonomy_menu']['path'] = array(
-      '#type' => 'value',
-      '#value' => 0,
-    );
-
     // Get taxonomy menu form options.
     if (isset($form['machine_name']) && $form['machine_name']['#default_value']) {
       $vocabulary = $form['machine_name']['#default_value'];
@@ -135,7 +129,6 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
   // Init flag variables to avoid notices if changes haven't happened
   $changed_menu = FALSE;
   $change_vocab_item = FALSE;
-  $changed_path = FALSE;
 
   // Set the menu name and check for changes
   if (_taxonomy_menu_check_variable($variable_name, $vocab_parent['vocab_menu'])) {
@@ -149,13 +142,6 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
     $changed_menu = TRUE;
   }
   variable_set($variable_name, $vocab_parent['vocab_parent']);
-
-  // Set the path and check for changes
-  $variable_name = _taxonomy_menu_build_variable('path', $vocabulary);
-  if (_taxonomy_menu_check_variable($variable_name, $form_state['values']['taxonomy_menu']['path'])) {
-    $changed_path = TRUE;
-  }
-  variable_set($variable_name, $form_state['values']['taxonomy_menu']['path']);
 
   foreach ($form_state['values']['taxonomy_menu']['options'] as $key => $value) {
     // Create the variable name
@@ -184,7 +170,7 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
       $changed_menu ||
       (!$changed_menu && variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE) == 0)) {
     // Rebuild if rebuild is selected, menu has changed or vocabulary option changed.
-    if ($form_state['values']['taxonomy_menu']['options']['rebuild'] || $changed_menu || $change_vocab_item || $changed_path) {
+    if ($form_state['values']['taxonomy_menu']['options']['rebuild'] || $changed_menu || $change_vocab_item) {
       $message = _taxonomy_menu_rebuild($vocabulary);
     }
     // If setting has changed and a menu item is enabled, then update all of the menu items.
@@ -369,7 +355,6 @@ function taxonomy_menu_taxonomy_vocabulary_delete($vocabulary) {
     'taxonomy_menu_hide_empty_terms_',
     'taxonomy_menu_expanded_',
     'taxonomy_menu_rebuild_',
-    'taxonomy_menu_path_',
     'taxonomy_menu_menu_end_all_',
     'taxonomy_menu_display_descendants_',
     'taxonomy_menu_voc_name_',
@@ -653,21 +638,12 @@ function _taxonomy_menu_save($item) {
     $item['weight'] = $item['root_term_weight'];
   }
 
-  // Create the path.
-  $path = 'taxonomy/term/' . $item['tid'];
-
   // Get the parent mlid: this is either:
   // - the parent tid's mlid
   // - the menu parent setting for this vocab
   $plid = _taxonomy_menu_get_mlid($item['ptid'], $item['vocabulary']);
   if (!$plid || $flatten_menu) {
     $plid = variable_get(_taxonomy_menu_build_variable('vocab_parent', $item['vocabulary']), NULL);
-  }
-
-  // Make sure the path has less then 256 characters.
-  if (backdrop_strlen($path) > 256) {
-    preg_match('/(.{256}.*?)\b/', $path, $matches);
-    $path = rtrim($matches[1]);
   }
 
   $link = array(
@@ -677,7 +653,7 @@ function _taxonomy_menu_save($item) {
     'weight' => $item['weight'],
     'module' => 'taxonomy_menu',
     'expanded' => variable_get(_taxonomy_menu_build_variable('expanded', $item['vocabulary']), TRUE),
-    'link_path' => $path,
+    'link_path' => 'taxonomy/term/' . $item['tid'],
   );
 
   // Be sure to load the original menu link to preserve non-standard properties.
@@ -690,18 +666,6 @@ function _taxonomy_menu_save($item) {
         'title' => trim($item['description']) ? $item['description'] : $item['name'],
       ),
     );
-  }
-
-  // Add setup the query paramater in the URL correctly.
-  if (strpos($path, '?') !== FALSE) {
-    $split = explode('?', $path);
-    if (strpos($split[1], '?') !== FALSE) {
-      // @todo the query split didn't work, too many question marks.
-    }
-    else {
-      parse_str($split[1], $link['options']['query']);
-      $link['link_path'] = $split[0];
-    }
   }
 
   // If passed a mlid then add it.
@@ -775,7 +739,7 @@ function taxonomy_menu_taxonomy_menu_delete(&$item) {
  *   array with the following key/value pairs:
  *     'term': Taxonomy term object, if updating a term.
  *     'menu_name': menu that the item is set to apply to.
- *     'vid': Vocabuary id, if editing vocab item.
+ *     'vocabulary': Vocabuary machine name, if editing vocab item.
  *     'mlid': Menu link id.
  *
  * @param $node
