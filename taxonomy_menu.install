@@ -50,12 +50,6 @@ function taxonomy_menu_uninstall() {
 }
 
 /**
- * Implements hook_install().
- */
-function taxonomy_menu_install() {
-}
-
-/**
  * Implements hook_schema().
  */
 function taxonomy_menu_schema() {
@@ -92,6 +86,13 @@ function taxonomy_menu_schema() {
   );
 
   return $schema;
+}
+
+/**
+ * Implements hook_update_last_removed().
+ */
+function taxonomy_menu_update_last_removed() {
+  return 7000;
 }
 
 /**
