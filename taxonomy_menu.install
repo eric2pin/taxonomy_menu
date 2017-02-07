@@ -56,17 +56,17 @@ function taxonomy_menu_uninstall() {
   // This prevents known issue https://www.drupal.org/node/1966684
   // where uninstalling Taxonomy Menu will delete variables related
   // to the Taxonomy Menu Block module.
-  $variable_suffixes = array(
-    'vocab_menu',
-    'vocab_parent',
-    'display_num',
-    'hide_empty_terms',
-    'expanded',
-    'rebuild',
-    'sync',
-    'flat',
-    'max_depth',
-    'term_item_description',
+  $variable_prefixes = array(
+    'taxonomy_menu_vocab_menu_',
+    'taxonomy_menu_vocab_parent_',
+    'taxonomy_menu_display_num_',
+    'taxonomy_menu_hide_empty_terms_',
+    'taxonomy_menu_expanded_',
+    'taxonomy_menu_rebuild_',
+    'taxonomy_menu_sync_',
+    'taxonomy_menu_flat_',
+    'taxonomy_menu_max_depth_',
+    'taxonomy_menu_term_item_description_',
   );
 
   // Delete variables.
@@ -76,11 +76,8 @@ function taxonomy_menu_uninstall() {
            ->execute();
   $variables = $query->fetchAll();
   foreach ($variables as $variable) {
-    // Add check to make sure we only delete variables for Taxonomy Menu,
-    // not variables for Taxonomy Menu Block.
-    foreach ($variable_suffixes as $suffix) {
-      $taxonomy_menu_variable_name = 'taxonomy_menu_' . $suffix;
-      if (strpos($variable->name, $taxonomy_menu_variable_name) !== FALSE) {
+    foreach ($variable_prefixes as $prefix) {
+      if (strpos($variable->name, $prefix) !== FALSE) {
         variable_del($variable->name);
       }
     }
@@ -125,6 +122,9 @@ function taxonomy_menu_update_1000() {
   // Add the new vocabulary index.
   db_add_index('taxonomy_menu', 'vocabulary', array('vocabulary'));
 
+  // @todo update vids to vocabularies in taxonomy_menu table.
+
+
   // Remove unsupported variables.
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_path_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_%'");
@@ -132,4 +132,8 @@ function taxonomy_menu_update_1000() {
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_voc_item_description_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_end_all_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_display_descendants_%'");
+
+  // Switch from variables to config.
+
+
 }
