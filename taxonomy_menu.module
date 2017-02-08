@@ -26,11 +26,8 @@ function taxonomy_menu_config_info() {
   return $prefixes;
 }
 
-
 /**
  * Implements hook_form_alter().
- *
- * Add additional taxonomy_menu options to the vocab form.
  */
 function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'taxonomy_form_vocabulary') {
@@ -165,6 +162,10 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
   foreach ($form_state['values']['taxonomy_menu']['options'] as $key => $value) {
     if ($config->get($key) != $value) {
       $changed = TRUE;
+      if ($form['taxonomy_menu']['options'][$key]['#type'] == 'checkbox') {
+        // Set checkboxes to bool.
+        $value = (bool)$value;
+      }
       $config->set($key, $value);
     }
   }
@@ -430,9 +431,6 @@ function _taxonomy_menu_taxonomy_termapi_helper($term, $operation) {
     // Run function.
     taxonomy_menu_handler($operation, $item);
 
-    // Report status.
-    backdrop_set_message($message, 'status');
-
     // Rebuild the menu.
     menu_cache_clear($menu_name);
   }
@@ -660,6 +658,9 @@ function _taxonomy_menu_save($item) {
     }
   }
 
+  // Expanded must be and integer.
+  $link['expanded'] = isset($link['expanded']) ? (int)$link['expanded'] : 0;
+
   // If remove is true then set hidden to 1.
   $link['hidden'] = (isset($item['remove']) && $item['remove']) ? 1 : $is_hidden;
 
@@ -723,12 +724,11 @@ function _taxonomy_menu_create_item($args = array(), $node) {
       'name' => $term->name,
       'description' => $config->get('term_item_description') ? check_plain(strip_tags($term->description)) : '',
       'weight' => !empty($term->weight) ? $term->weight : 0,
-      'vid' => $term->vid,
       'vocabulary' => $term->vocabulary,
       'ptid' => $ptid,
       'root_term_weight' => $root_term_weight,
       'menu_name' => $args['menu_name'],
-      'language' => isset($term->language) ? $term->language : ($node ? $node->language : $GLOBALS['language']->language),
+      'language' => isset($term->language) ? $term->langcode : ($node ? $node->langcode : $GLOBALS['language']->langcode),
     );
     if (isset($args['mlid'])) {
       $item['mlid'] = $args['mlid'];
@@ -781,6 +781,7 @@ function _taxonomy_menu_item($item) {
 
   // If tid is 0 then do not change any settings.
   if ($item['tid'] > 0) {
+
     // Get the number of node attached to this term.
     $num = _taxonomy_menu_term_count($item['tid']);
     $config = config('taxonomy_menu.vocabulary.' . $item['vocabulary']);
@@ -854,7 +855,7 @@ function taxonomy_menu_get_options($vocabulary) {
       $options[$field_name]['#type'] = 'checkbox';
     }
 
-    // Set the default value from config, if set.
+    // Overwrite the default value from config, if set.
     $saved_default = config_get('taxonomy_menu.vocabulary.' . $vocabulary, $field_name);
     if (isset($saved_default)) {
       $options[$field_name]['#default_value'] = $saved_default;

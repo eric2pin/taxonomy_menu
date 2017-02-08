@@ -4,62 +4,30 @@
  * Tests for taxonomy_menu.module.
  */
 
+// Since we are extending TaxonomyWebTestCase we need to include this file.
+include_once(BACKDROP_ROOT . '/core/modules/taxonomy/tests/taxonomy.test');
+
 /**
  * Class with common helper methods.
  */
-class TaxonomyMenuWebTestCase extends BackdropWebTestCase {
-
-  /**
-   * Returns a new vocabulary with random properties.
-   */
-  function createVocabulary() {
-    // Create a vocabulary.
-    $vocabulary = new stdClass();
-    $vocabulary->name = $this->randomName();
-    $vocabulary->description = $this->randomName();
-    $vocabulary->machine_name = backdrop_strtolower($this->randomName());
-    $vocabulary->help = '';
-    $vocabulary->nodes = array('article' => 'article');
-    $vocabulary->weight = mt_rand(0, 10);
-    taxonomy_vocabulary_save($vocabulary);
-    return $vocabulary;
-  }
-
-  /**
-   * Returns a new term with random properties in vocabulary $vid.
-   */
-  function createTerm($vocabulary) {
-    $term = $this->createNewTerm($vocabulary);
-    taxonomy_term_save($term);
-    return $term;
-  }
-
-  /**
-   * Get the first available text format.
-   */
-  function getTextFormat() {
-    static $format = NULL;
-    if ($format === NULL) {
-      $format = db_query_range('SELECT format FROM {filter_format}', 0, 1)->fetchField();
-    }
-    return $format;
-  }
+class TaxonomyMenuWebTestCase extends TaxonomyWebTestCase {
 
   /**
    * Create a new term record.
    */
   function createNewTerm($vocabulary, $name = NULL, $parent = NULL) {
-    $term = new stdClass();
-    $term->name = ($name === NULL) ? $this->randomName() : $name;
-    $term->description = $this->randomName();
-    $term->format = $this->getTextFormat();
-    $term->vid = $vocabulary->vid;
-    if ($parent !== NULL) {
-      $term->parent = array($parent->tid);
-    }
-
+    $term = entity_create('taxonomy_term', array(
+      'name' => ($name === NULL) ? $this->randomName() : $name,
+      'description' => $this->randomName(),
+      'format' => filter_default_format(),
+      'vocabulary' => $vocabulary->machine_name,
+      'langcode' => LANGUAGE_NONE,
+      'parent' => ($parent !== NULL) ? array($parent->tid) : NULL,
+    ));
+    taxonomy_term_save($term);
     return $term;
   }
+
 }
 
 /**
@@ -67,43 +35,46 @@ class TaxonomyMenuWebTestCase extends BackdropWebTestCase {
  */
 class TaxonomyMenuUnitTest extends TaxonomyMenuWebTestCase {
 
-  public static function getInfo() {
-    return array(
-      'name' => 'CRUD',
-      'description' => 'Test CRUD functions',
-      'group' => 'Taxonomy menu',
-    );
-  }
-
   function setUp() {
     parent::setUp('taxonomy_menu');
-    $admin_user = $this->backdropCreateUser(array('access administration pages', 'administer blocks', 'administer taxonomy', 'administer menu', 'administer nodes', 'create article content', 'create page content', 'edit any article content', 'edit any page content', 'delete any article content', 'delete any page content', 'access content overview'));
-    $this->backdropLogin($admin_user);
+
+    // Create an admin user and log them in.
+    $perms = array(
+      'access administration pages',
+      'administer layouts',
+      'administer taxonomy',
+      'administer menu',
+      'administer nodes',
+      'create post content',
+      'create page content',
+      'edit any post content',
+      'edit any page content',
+      'delete any post content',
+      'delete any page content',
+      'access content overview',
+    );
+    $this->adminUser = $this->backdropCreateUser($perms);
+    $this->backdropLogin($this->adminUser);
+
     $this->vocabulary = $this->createVocabulary();
     $this->term = $this->createTerm($this->vocabulary);
   }
 
   function testTaxonomyMenuCRUD() {
+    $this->backdropGet('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/configure');
     $edit = array();
-    $edit['taxonomy_menu[vocab_parent]'] = 'main-menu:0';
-    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
-
+    $edit['taxonomy_menu[vocab_parent]'] = 'user-menu:0';
+    $this->backdropPost(NULL, $edit, 'Save');
     $this->assertResponse(200);
 
     $term = $this->term;
+    // Confirm the link is there.
     $this->assertLink($term->name);
-
-    $term = $this->term;
+    // Delete the term.
     taxonomy_term_delete($term->tid);
     $this->backdropGet('<front>');
-
+    // Confirm the link is gone.
     $this->assertNoLink($term->name);
-
-    $node = $this->backdropCreateNode();
-    $this->backdropPost("node/$node->nid/delete", array(), t('Delete'));
-    $this->backdropGet("node/$node->nid");
-    $this->assertResponse(404);
-
   }
 
   function testTaxonomyMenuCustomMenu() {
@@ -115,15 +86,19 @@ class TaxonomyMenuUnitTest extends TaxonomyMenuWebTestCase {
     $edit['menu_name'] = $machine_name;
     $this->backdropPost('admin/structure/menu/add', $edit, 'Save');
 
+    // Edit the home page layout.
+    $this->backdropGet('admin/structure/layouts/manage/home');
     // Move the menu block to a region.
-    $edit = array();
-    $edit['blocks[menu_menu-' . $machine_name . '][region]'] = 'sidebar_first';
-    $this->backdropPost('admin/structure/block', $edit, 'Save blocks');
+    $this->clickLink(t('Add block'), 3);
+    $this->clickLink($edit['title']);
+    $this->backdropPost(NULL, array(), t('Add block'));
+    // Save the home page layout.
+    $this->backdropPost('admin/structure/layouts/manage/home', array(), 'Save layout');
     $this->assertResponse(200);
 
     $edit = array();
     $edit['taxonomy_menu[vocab_parent]'] = 'menu-' . $machine_name . ':0';
-    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/configure', $edit, 'Save');
 
     $term = $this->term;
     $this->backdropGet('<front>');
@@ -157,34 +132,39 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
     "term3" => TRUE
   );
 
-  public static function getInfo() {
-    return array(
-      'name' => 'Hierarchy',
-      'description' => 'Test functions related to taxonomy hierarchy',
-      'group' => 'Taxonomy menu',
-    );
-  }
-
   function setUp() {
+    // Enable the taxonomy menu module.
     parent::setUp('taxonomy_menu');
-    $admin_user = $this->backdropCreateUser(array('access administration pages', 'create article content', 'administer blocks', 'administer taxonomy', 'administer menu'));
-    $this->backdropLogin($admin_user);
+
+    // Create an admin user and log them in.
+    $perms = array(
+      'access administration pages',
+      'create post content',
+      'administer layouts',
+      'administer taxonomy',
+      'administer menu',
+    );
+    $this->adminUser = $this->backdropCreateUser($perms);
+    $this->backdropLogin($this->adminUser);
+
+    // Create a vocabulary.
     $this->vocabulary = $this->createVocabulary();
+
+    // Create terms.
     $this->terms = array();
     foreach ($this->forest as $name => $children) {
       $this->terms[] = new TaxonomyMenuTreeNode($this, NULL, $name, $children);
     }
   }
 
-
   function testTaxonomyMenuHierarchy() {
     $edit = array();
-    $edit['taxonomy_menu[vocab_parent]'] = 'navigation:0';
-    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $edit['taxonomy_menu[vocab_parent]'] = 'main-menu:0';
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/configure', $edit, 'Save');
 
     $this->assertResponse(200);
 
-    // By default, auto expand is on : we must find the whole hierarchy.
+    // By default, auto expand is on: we must find the whole hierarchy.
     foreach ($this->terms as $term)  {
       $this->assertLink($term->name); // 1st level
       foreach ($term->children as $child) {
@@ -199,13 +179,27 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
     // Set auto expand to off.
     $edit = array();
     $edit['taxonomy_menu[options][expanded]'] = FALSE;
-    //$edit['taxonomy_menu[options][rebuild]'] = '1'; // Rebuild menu on submit
-    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/configure', $edit, 'Save');
     $this->assertResponse(200);
-    //$this->backdropGet('admin/structure/taxonomy/'.  $this->vocabulary->machine_name . '/edit');
+
+    // Set primary navigaiton menu to "tree" so we can test expanded.
+    $this->backdropGet('admin/structure/layouts/manage/home');
+    $this->clickLink('Configure', 1); // Off by one.
+    $edit = array('block_settings[style]' => 'tree');
+    $this->backdropPost(NULL, $edit, t('Update block'));
+    $this->backdropPost('admin/structure/layouts/manage/home', array(), 'Save layout');
+
+    // Set primary navigaiton menu to "tree" so we can test expanded.
+    $this->backdropGet('admin/structure/layouts/manage/default');
+    $this->clickLink('Configure', 1); // Off by one.
+    $edit = array('block_settings[style]' => 'tree');
+    $this->backdropPost(NULL, $edit, t('Update block'));
+    $this->backdropPost('admin/structure/layouts/manage/default', array(), 'Save layout');
 
     // We should have links to the first level of the hierarchy only
     $this->backdropGet('<front>');
+    // Confirm the primary links menu is NOT a drop-down.
+    $this->assertNoRaw('class="menu-dropdown menu"');
     foreach ($this->terms as $term)  {
       $this->assertLink($term->name);
       foreach ($term->children as $child) {
@@ -219,6 +213,9 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
     // - children of term1_2
     $this->clickLink("term1");
     $this->clickLink("term1_2");
+
+    // Confirm the primary links menu is NOT a drop-down.
+    $this->assertNoRaw('class="menu-dropdown menu"');
 
     foreach ($this->terms as $term)  {
       $this->assertLink($term->name); // 1st level
@@ -242,7 +239,7 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
 }
 
 /**
- * Helper class to build the tree and keep data on hand
+ * Helper class to build the tree and keep data on hand.
  */
 class TaxonomyMenuTreeNode {
   function __construct(&$testcase, $parent, $name, $children) {
@@ -250,7 +247,7 @@ class TaxonomyMenuTreeNode {
     $this->children = array();
     $this->parent = $parent;
 
-    $this->term = $testcase->createNewTerm($testcase->vocabulary, $name, $parent ?$parent->term : NULL);
+    $this->term = $testcase->createNewTerm($testcase->vocabulary, $name, $parent ? $parent->term : NULL);
 
     taxonomy_term_save($this->term);
     if (is_array($children)) {

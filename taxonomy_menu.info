@@ -5,5 +5,3 @@ backdrop       = 1.x
 
 dependencies[] = taxonomy
 dependencies[] = menu
-
-files[] = taxonomy_menu.test

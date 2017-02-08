@@ -1,0 +1,12 @@
+[TaxonomyMenuHierarchyTest]
+name = Taxonomy menu Hierarchy tests
+description = Test functions related to taxonomy hierarchy
+group = Taxonomy menu
+file = taxonomy_menu.test
+
+[TaxonomyMenuUnitTest]
+name = Taxonomy menu Unit tests
+description = Unit tests for taxonomy menu operations
+group = Taxonomy menu
+file = taxonomy_menu.test
+
