@@ -58,7 +58,19 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
 
     // This turns the vocab terms into menu items.
     $item['mlid'] = 0;
-    $menu_items = menu_parent_options(menu_get_menus(), $item);
+    $all_menus = menu_get_menus();
+
+    // If the main menu is an option, put it at the top of the list for UX.
+    if (array_key_exists('main-menu', $all_menus)) {
+      $main_menu = $all_menus['main-menu'];
+      unset($all_menus['main-menu']);
+      $new_menus = array('main-menu' => $main_menu) + $all_menus;
+      $all_menus = $new_menus;
+    }
+
+    $menu_items = menu_parent_options($all_menus, $item);
+
+    // Add disabled to the top of the list.
     array_unshift($menu_items, t('- Disabled -'));
 
     $vocabulary = 0;
