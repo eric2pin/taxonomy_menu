@@ -53,9 +53,6 @@ function taxonomy_menu_uninstall() {
   state_set('menu_rebuild_needed', TRUE);
 
   // Gets array of more specific variables set by Taxonomy Menu module.
-  // This prevents known issue https://www.drupal.org/node/1966684
-  // where uninstalling Taxonomy Menu will delete variables related
-  // to the Taxonomy Menu Block module.
   $variable_prefixes = array(
     'taxonomy_menu_vocab_menu_',
     'taxonomy_menu_vocab_parent_',
@@ -133,7 +130,43 @@ function taxonomy_menu_update_1000() {
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_end_all_%'");
   db_query("DELETE from {variable} WHERE name LIKE 'taxonomy_menu_display_descendants_%'");
 
+  // Gets array of specific variables set by Taxonomy Menu module.
+  $variable_prefixes = array(
+    'taxonomy_menu_vocab_menu_',
+    'taxonomy_menu_vocab_parent_',
+    'taxonomy_menu_display_num_',
+    'taxonomy_menu_hide_empty_terms_',
+    'taxonomy_menu_expanded_',
+    'taxonomy_menu_rebuild_',
+    'taxonomy_menu_sync_',
+    'taxonomy_menu_flat_',
+    'taxonomy_menu_max_depth_',
+    'taxonomy_menu_term_item_description_',
+  );
+
   // Switch from variables to config.
+  $vocabularies = taxonomy_get_vocabularies();
 
+  foreach ($vocabularies as $machine => $vocab) {
+    $config = config('taxonomy_menu.vocabulary.' . $machine);
+    $empty = TRUE;
+    foreach ($variable_prefixes as $prefix) {
+      $value = update_variable_get($prefix . $machine, NULL);
+      if ($value !== NULL) {
+        $empty = FALSE;
+        // Remove the module name.
+        $key = str_replace('taxonomy_menu_', '', $prefix);
+        // Remove the vocabulary name.
+        $key = str_replace($machine, '', $key);
+        // Set the config value.
+        $config->set($key, $value);
+      }
+    }
+    if (!$empty) {
+      $config->save();
+    }
+  }
 
+  return t('Taxonomy menu database table updated, and variables converted to config.');
 }
+

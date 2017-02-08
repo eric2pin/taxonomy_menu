@@ -11,6 +11,23 @@ module_load_include('inc', 'taxonomy_menu', 'taxonomy_menu.database');
 module_load_include('inc', 'taxonomy_menu', 'taxonomy_menu.batch');
 
 /**
+ * Implements hook_config_info().
+ */
+function taxonomy_menu_config_info() {
+  // If there are a large number of configuration files prefixed with this
+  // string, provide a "name_key" that will be read from the configuration file
+  // and used when listing the configuration file.
+  $prefixes['taxonomy_menu.vocabulary'] = array(
+    'name_key' => 'name',
+    'label_key' => 'label',
+    'group' => t('Taxonomy Menus'),
+  );
+
+  return $prefixes;
+}
+
+
+/**
  * Implements hook_form_alter().
  *
  * Add additional taxonomy_menu options to the vocab form.
@@ -44,38 +61,29 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
     $menu_items = menu_parent_options(menu_get_menus(), $item);
     array_unshift($menu_items, t('- Disabled -'));
 
+    $vocabulary = 0;
+    $vocab_parent_default = 0;
     // The vocab name isn't set when a new vocabulary is being created.
-    if (isset($form['machine_name']['#default_value'])) {
+    if (isset($form['machine_name']) && isset($form['machine_name']['#default_value'])) {
       $vocabulary = $form['machine_name']['#default_value'];
-      $variable_vocab_menu = 'taxonomy_menu_vocab_menu_' . $vocabulary;
-      $variable_vocab_parent = 'taxonomy_menu_vocab_parent_' . $vocabulary;
-      $default = variable_get($variable_vocab_menu, NULL) . ':' .
-                 variable_get($variable_vocab_parent, NULL);
-      if (!isset($menu_items[$default])) {
-        $default = 0;
-      }
-    }
-    else {
-      $default = 0;
+      $config = config('taxonomy_menu.vocabulary.' . $vocabulary);
+
+      $vocab_menu = $config->get('vocab_menu');
+      $vocab_parent = $config->get('vocab_parent');
+      $vocab_parent_default = $vocab_menu . ':' . $vocab_parent;
     }
 
     $form['taxonomy_menu']['vocab_parent'] = array(
       '#type' => 'select',
       '#title' => t('Menu location'),
-      '#default_value' => $default,
+      '#default_value' => $vocab_parent_default,
       '#options' => $menu_items,
       '#description' => t('Taxonomy menu items will be inserted below the item selected here.'),
       '#attributes' => array('class' => array('menu-title-select')),
     );
 
-    // Get taxonomy menu form options.
-    if (isset($form['machine_name']) && $form['machine_name']['#default_value']) {
-      $vocabulary = $form['machine_name']['#default_value'];
-    }
-    else {
-      $vocabulary = 0;
-    }
-    $form['taxonomy_menu']['options'] = _taxonomy_menu_create_options($vocabulary);
+    // Build the options part of the vocab form.
+    $form['taxonomy_menu']['options'] = taxonomy_menu_get_options($vocabulary);
 
     // Rebuild the menu.
     $form['taxonomy_menu']['options']['rebuild'] = array(
@@ -85,6 +93,7 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
       '#weight' => 20,
       '#description' => t('<strong>Warning</strong>: This will delete then re-create all of the menu items. Only use this option if you are experiencing issues like missing menu items or other inconsistencies.'),
     );
+
     // Move the buttons to the bottom of the form.
     $form['submit']['#weight'] = 49;
     $form['delete']['#weight'] = 50;
@@ -106,76 +115,62 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
  */
 function taxonomy_menu_vocab_submit($form, &$form_state) {
   $vocabulary = $form_state['values']['machine_name'];
-  $variable_name = _taxonomy_menu_build_variable('vocab_menu', $vocabulary);
-  $current_setting = variable_get($variable_name, FALSE);
 
-  // If the menu had never been enabled, skip the rest.
+  // Menu location has been set to disabled.
   if (is_numeric($form_state['values']['taxonomy_menu']['vocab_parent'])) {
-    // Menu location has been set to disabled, don't want to throw notices
+    // Don't want to throw notices.
     $form_state['values']['taxonomy_menu']['vocab_parent'] = '0:0';
-    if ($current_setting === FALSE) {
+    // If the menu had never been enabled, skip the rest.
+    if (config_get('taxonomy_menu.vocabulary.' . $vocabulary, 'vocab_menu') === NULL) {
       return;
     }
   }
 
+  // Menu is enabled: create a new config object, or load existing.
+  $config = config('taxonomy_menu.vocabulary.' . $vocabulary);
+  $config->set('name', $vocabulary);
+  $config->set('label', $form_state['values']['name']);
+
+  // Assume nothing has changed, rebuild menu if it has.
   $changed = FALSE;
 
   // Split the menu location into menu name and menu item id.
   list($vocab_parent['vocab_menu'], $vocab_parent['vocab_parent']) = explode(':', $form_state['values']['taxonomy_menu']['vocab_parent']);
 
-  // Init flag variables to avoid notices if changes haven't happened
-  $changed_menu = FALSE;
-  $change_vocab_item = FALSE;
-
   // Set the menu name and check for changes
-  if (_taxonomy_menu_check_variable($variable_name, $vocab_parent['vocab_menu'])) {
-    $changed_menu = TRUE;
+  if ($config->get('vocab_menu') != $vocab_parent['vocab_menu']) {
+    $changed = TRUE;
+    $config->set('vocab_menu', $vocab_parent['vocab_menu']);
   }
-  variable_set($variable_name, $vocab_parent['vocab_menu']);
 
   // Set the menu parent item and check for changes
-  $variable_name = _taxonomy_menu_build_variable('vocab_parent', $vocabulary);
-  if (_taxonomy_menu_check_variable($variable_name, $vocab_parent['vocab_parent'])) {
-    $changed_menu = TRUE;
+  if ($config->get('vocab_parent') != $vocab_parent['vocab_parent']) {
+    $changed = TRUE;
+    $config->set('vocab_parent', $vocab_parent['vocab_parent']);
   }
-  variable_set($variable_name, $vocab_parent['vocab_parent']);
 
+  // Check each of the options for changes that might need a menu rebuild.
   foreach ($form_state['values']['taxonomy_menu']['options'] as $key => $value) {
-    // Create the variable name
-    $variable_name = _taxonomy_menu_build_variable($key, $vocabulary);
-
-    // If $changed is already set to true, then don't bother checking any others.
-    if (!$changed) {
-      // Check to see if the variable has changed.
-      if (_taxonomy_menu_check_variable($variable_name, $value)) {
-        $changed = TRUE;
-      }
+    if ($config->get($key) != $value) {
+      $changed = TRUE;
+      $config->set($key, $value);
     }
-    // Save variable.
-    variable_set($variable_name, $value);
   }
 
-  // If the menu hasn't changed and the menu is disabled then do not do anything else.
-  if ($form_state['values']['taxonomy_menu']['options']['rebuild'] ||
-      $changed_menu ||
-      (!$changed_menu && variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE) == 0)) {
-    // Rebuild if rebuild is selected, menu has changed or vocabulary option changed.
-    if ($form_state['values']['taxonomy_menu']['options']['rebuild'] || $changed_menu || $change_vocab_item) {
-      $message = _taxonomy_menu_rebuild($vocabulary);
-    }
+  // Save updated config.
+  $config->save();
+
+  // Rebuild if rebuild is selected, or anything has changed.
+  if ($form_state['values']['taxonomy_menu']['options']['rebuild'] || $changed) {
+    $message = _taxonomy_menu_rebuild($vocabulary);
+
     // If setting has changed and a menu item is enabled, then update all of the menu items.
-    elseif ($changed && variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE)) {
+    if ($changed && $config->get('vocab_menu')) {
       $message = _taxonomy_menu_update_link_items($vocabulary);
     }
 
     // Do a full menu rebuild in case we have removed the menu or moved it between menus.
     state_set('menu_rebuild_needed', TRUE);
-    // Only send a message if one has been created.
-    if (isset($message) && $message) {
-      // $message is sanitized coming out of its source function,
-      // no need to reclean it here
-      backdrop_set_message($message, 'status');
-    }
   }
 }
 
@@ -193,26 +188,27 @@ function taxonomy_menu_overview_submit(&$form, &$form_state) {
   // 4. [Reset to alphabetical][Cancel] --> no rebuild
   // The code below avoids rebuilding after situation 2.
 
-  if ($form_state['rebuild'] == FALSE && isset($form['#vocabulary']->vid) ) {
+  if ($form_state['rebuild'] == FALSE && isset($form['#vocabulary']->machine_name) ) {
     // Try to catch the 'Save' button.
-    $vid = $form['#vocabulary']->vid;
+    $vocabulary = $form['#vocabulary']->machine_name;
   }
-  elseif ($form_state['rebuild'] == TRUE && isset($form['#vocabulary']->vid) ) {
+  elseif ($form_state['rebuild'] == TRUE && isset($form['#vocabulary']->machine_name) ) {
     // Try to catch the 'Reset to alphabetical' button
-    $vid = NULL;
+    $vocabulary = NULL;
   }
-  elseif ($form_state['rebuild'] == FALSE && isset($form['vid']['#value']) ) {
+  elseif ($form_state['rebuild'] == FALSE && isset($form['machine_name']['#value']) ) {
     // Try to catch the second (confirming) 'Reset to alphabetical' button.
-    $vid = $form['vid']['#value'];
+    $vocabulary = $form['machine_name']['#value'];
   }
   else {
     // The button [Reset to alphabetical] [Cancel] does not call this page.
-    $vid = NULL;
+    $vocabulary = NULL;
   }
 
-  if (isset($vid)) {
-    $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), 0);
-    $sync = variable_get(_taxonomy_menu_build_variable('sync', $vocabulary), 0);
+  if (isset($vocabulary)) {
+    $config = config('taxonomy_menu.vocabulary.' . $vocabulary);
+    $menu_name = $config->get('vocab_menu');
+    $sync = $config->get('sync');
     if ($menu_name && $sync) {
       // Update all menu items (do not rebuild the menu).
       $message = _taxonomy_menu_update_link_items($vid);
@@ -244,8 +240,8 @@ function _taxonomy_menu_rebuild($vocabulary) {
   _taxonomy_menu_delete_all($vocabulary);
 
   // Only insert the links if a menu is set
-  if (variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE)) {
-    _taxonomy_menu_insert_link_items($vocabulary);
+  if (config_get('taxonomy_menu.vocabulary.' . $vocabulary, 'vocab_menu')) {
+    taxonomy_menu_insert_link_items($vocabulary);
     menu_rebuild();
     return t('The Taxonomy Menu has been rebuilt.');
   }
@@ -255,30 +251,15 @@ function _taxonomy_menu_rebuild($vocabulary) {
 }
 
 /**
- * Checks to see if the variable has changed.
- *
- * @param string $variable
- *   Name of variable.
- *
- * @return bool
- *   TRUE if it has changed
- */
-function _taxonomy_menu_check_variable($variable, $new_value) {
-  if ($new_value != variable_get($variable, FALSE)) {
-    return TRUE;
-  }
-  return FALSE;
-}
-
-/**
  * Helper function: Updates the menu items.
  *
  * @param string $vocabulary
  *   Vocabulary machine name.
  */
 function _taxonomy_menu_update_link_items($vocabulary) {
-  $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE);
-  $depth = variable_get(_taxonomy_menu_build_variable('max_depth', $vocabulary), 0);
+  $config = config('taxonomy_menu.vocabulary.' . $vocabulary);
+  $menu_name = $config->get('vocab_menu');
+  $depth = $config->get('max_depth');
 
   // Get a list of the current tid and menu_link combinations.
   $menu_links = _taxonomy_menu_get_menu_items($vocabulary);
@@ -310,37 +291,28 @@ function _taxonomy_menu_update_link_items($vocabulary) {
 /**
  * Creates new link items for the vocabulary.
  *
- * @param $vid
- *   Vocabulary ID.
+ * @param $vocabulary
+ *   Vocabulary machine name.
  */
-function _taxonomy_menu_insert_link_items($vid) {
-  $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary), FALSE);
-  // Let batch api take care of inserting the menu items
-  _taxonomy_menu_insert_link_items_batch($vid);
+function taxonomy_menu_insert_link_items($vocabulary) {
+  taxonomy_menu_insert_link_items_batch($vocabulary);
 }
 
 /**
  * Implements hook_taxonomy_vocabulary_delete().
  */
 function taxonomy_menu_taxonomy_vocabulary_delete($vocabulary) {
-  // Delete the menu items for this vocab.
+  // Delete the menu items for this vocabulary.
   _taxonomy_menu_delete_all($vocabulary->name);
-  $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $vocabulary->name), 0);
+
+  $config = config('taxonomy_menu.vocabulary.' . $vocabulary->name);
+  $menu_name = $config->get('vocab_menu');
+
+  // Clear the menu cache.
   menu_cache_clear($menu_name);
 
-  // Delete all the variables for this vocab.
-  $variable_prefixes = array(
-    'taxonomy_menu_vocab_menu_',
-    'taxonomy_menu_vocab_parent_',
-    'taxonomy_menu_display_num_',
-    'taxonomy_menu_hide_empty_terms_',
-    'taxonomy_menu_expanded_',
-    'taxonomy_menu_rebuild_',
-    'taxonomy_menu_sync_',
-  );
-  foreach ($variable_prefixes as $prefix) {
-    variable_del($prefix . $vocabulary->name);
-  }
+  // Delete the config file.
+  $config->delete();
 }
 
 /**
@@ -429,9 +401,10 @@ function taxonomy_menu_node_delete($node) {
 function _taxonomy_menu_taxonomy_termapi_helper($term, $operation) {
   // Only sync if taxonomy_menu is enabled for this vocab and the 'sync'
   // option has been checked.
-  $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $term->vocabulary), 0);
-  $sync = variable_get(_taxonomy_menu_build_variable('sync', $term->vocabulary), 0);
-  $depth = variable_get(_taxonomy_menu_build_variable('max_depth', $term->vocabulary), 0);
+  $config = config('taxonomy_menu.vocabulary.' . $term->vocabulary);
+  $menu_name = $config->get('vocab_menu');
+  $sync = $config->get('sync');
+  $depth = $config->get('max_depth');
 
   if ($menu_name && $sync && !_taxonomy_menu_term_too_deep($term->tid, $depth)) {
     $item = array(
@@ -487,10 +460,12 @@ function _taxonomy_menu_nodeapi_helper($op, $terms = array(), $node) {
     }
 
     // Update the menu for each term if necessary.
-    $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $term->vocabulary), FALSE);
-    $vocb_sync = variable_get(_taxonomy_menu_build_variable('sync', $term->vocabulary), TRUE);
-    $menu_num = variable_get(_taxonomy_menu_build_variable('display_num', $term->vocabulary), TRUE);
-    $hide_empty = variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $term->vocabulary), FALSE);
+    $config = config('taxonomy_menu.vocabulary.' . $term->vocabulary);
+    $menu_name = $config->get('vocab_menu');
+    $vocb_sync = $config->get('sync');
+    $menu_num = $config->get('display_num');
+    $hide_empty = $config->get('hide_empty_terms');
+
     if ($menu_name && $vocb_sync && ($menu_num || $hide_empty)) {
       // Build argument array to save menu_item.
       $args = array(
@@ -510,7 +485,7 @@ function _taxonomy_menu_nodeapi_helper($op, $terms = array(), $node) {
       }
 
       taxonomy_menu_handler($op, $args, $node);
-      if (variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $term->vocabulary), FALSE)) {
+      if ($hide_empty) {
         _taxonomy_menu_update_all_parents($term, $menu_name);
       }
     }
@@ -609,7 +584,9 @@ function _taxonomy_menu_save($item) {
   if (empty($item)) return;
   $insert = TRUE;
 
-  $flatten_menu = variable_get(_taxonomy_menu_build_variable('flat', $item['vocabulary']));
+  $config = config('taxonomy_menu.vocabulary.' . $item['vocabulary']);
+  $flatten_menu = $config->get('flat');
+
   // Child items should appear around the parent/root, so set their weight
   // equal to the root term's weight.
   if ($flatten_menu) {
@@ -621,7 +598,7 @@ function _taxonomy_menu_save($item) {
   // - the menu parent setting for this vocab
   $plid = _taxonomy_menu_get_mlid($item['ptid'], $item['vocabulary']);
   if (!$plid || $flatten_menu) {
-    $plid = variable_get(_taxonomy_menu_build_variable('vocab_parent', $item['vocabulary']), NULL);
+    $plid = $config->get('vocab_parent');
   }
 
   $link = array(
@@ -630,7 +607,7 @@ function _taxonomy_menu_save($item) {
     'plid' => $plid,
     'weight' => $item['weight'],
     'module' => 'taxonomy_menu',
-    'expanded' => variable_get(_taxonomy_menu_build_variable('expanded', $item['vocabulary']), TRUE),
+    'expanded' => $config->get('expanded'),
     'link_path' => 'taxonomy/term/' . $item['tid'],
   );
 
@@ -747,13 +724,14 @@ function _taxonomy_menu_create_item($args = array(), $node) {
   }
 
   foreach ($term->parents as $parent) {
+    $config = config('taxonomy_menu.vocabulary.' . $term->vocabulary);
     $ptid = $parent;
     // turn the term into the correct $item array form
     $item = array(
       'term' => $term,
       'tid' => $term->tid,
       'name' => $term->name,
-      'description' => variable_get(_taxonomy_menu_build_variable('term_item_description', $term->vocabulary), 0) ? check_plain(strip_tags($term->description)) : '',
+      'description' => $config->get('term_item_description') ? check_plain(strip_tags($term->description)) : '',
       'weight' => !empty($term->weight) ? $term->weight : 0,
       'vid' => $term->vid,
       'vocabulary' => $term->vocabulary,
@@ -807,15 +785,16 @@ function _taxonomy_menu_children_has_nodes($tid, $vid, $return = FALSE) {
  */
 function _taxonomy_menu_item($item) {
   if (empty($item)) return;
+
   // If tid is 0 then do not change any settings.
   if ($item['tid'] > 0) {
     // Get the number of node attached to this term.
     $num = _taxonomy_menu_term_count($item['tid']);
+    $config = config('taxonomy_menu.vocabulary.' . $item['vocabulary']);
 
     // If hide menu is selected and the term count is 0 and the term has no
     // children then do not create the menu item.
-    if ($num == 0 &&
-      variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $item['vocabulary']), FALSE) &&
+    if ($num == 0 && $config->get('hide_empty_terms') &&
       !_taxonomy_menu_children_has_nodes($item['tid'], $item['vocabulary'])) {
 
       $item['remove'] = TRUE;
@@ -823,7 +802,7 @@ function _taxonomy_menu_item($item) {
     }
 
     // If display number is selected and $num > 0 then change the title.
-    if (variable_get(_taxonomy_menu_build_variable('display_num', $item['vocabulary']), FALSE)) {
+    if ($config->get('display_num')) {
       $item['name'] .= " ($num)";
     }
   }
@@ -876,93 +855,74 @@ function taxonomy_menu_taxonomy_menu_update(&$item) {
  *
  * @return array
  *   Form array.
+ *
+ * @see hook_taxonomy_menu_options().
  */
-function _taxonomy_menu_create_options($vocabulary) {
+function taxonomy_menu_get_options($vocabulary) {
   $options = module_invoke_all('taxonomy_menu_options');
 
   // Cycle through fields.
   foreach ($options as $field_name => $field_elements) {
-    // Cycle through each value of the field.
-    $variable_name = _taxonomy_menu_build_variable($field_name, $vocabulary);
-
-    // If the variable is set then use that, if the default key is set then use
-    // that, otherwise use FALSE.
-    $options[$field_name]['#default_value'] =
-      variable_get($variable_name,
-      !empty($options[$field_name]['default']) ? $options[$field_name]['default'] : FALSE);
 
     // Set the type to checkbox if it is empty.
     if (empty($options[$field_name]['#type'])) {
       $options[$field_name]['#type'] = 'checkbox';
     }
 
-    // Set the options.
-    $options['#type'] = 'container';
-
-    // Remove the default value from the array so we don't pass it to the form.
-    unset($options[$field_name]['default']);
+    // Set the default value from config, if set.
+    $saved_default = config_get('taxonomy_menu.vocabulary.' . $vocabulary, $field_name);
+    if (isset($saved_default)) {
+      $options[$field_name]['#default_value'] = $saved_default;
+    }
   }
 
-  return $options;
-}
+  // Set the options container.
+  $options['#type'] = 'container';
 
-/**
- * Builds a variable name from the supplied short name and the machine name of
- * the vocabulary.
- *
- * @param string $name
- *   Name to be added to the returned variable.
- * @param string $vocabulary
- *   Machine name for the vocabulary.
- *
- * @return string
- */
-function _taxonomy_menu_build_variable($name, $vocabulary) {
-  return 'taxonomy_menu_' . $name . '_' . $vocabulary;
+  return $options;
 }
 
 /**
  * Implements hook_taxonomy_menu_options().
  */
 function taxonomy_menu_taxonomy_menu_options() {
-
   $options['sync'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Synchronise changes to this vocabulary'),
     '#description' => t('Every time a term is added/deleted/modified, the corresponding menu link will be altered too.'),
-    'default' => TRUE,
+    '#default_value' => TRUE,
   );
-
   $options['max_depth'] = array(
    '#type' => 'select',
-   '#title' => t('Max depth'),
+   '#title' => t('Maximim depth'),
    '#description' => t('Limit how many levels of the taxonomy tree to process. Useful if you have a very large tree of taxonomy terms, and only want to provide a menu for the first several levels.'),
    '#options' => array(0 => t('All'), 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9),
-   'default' => 0,
+   '#default_value' => 0,
   );
-
   $options['display_num'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Display the number of items in each taxonomy term.'),
-    'default' => FALSE,
+    '#default_value' => FALSE,
   );
-
   $options['hide_empty_terms'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Do not add a menu link for taxonomy terms with no items.'),
-    'default' => FALSE,
+    '#default_value' => FALSE,
   );
-
   $options['term_item_description'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Add the taxonomy term description as the title attribute on the menu link.'),
-    'default' => FALSE,
+    '#default_value' => FALSE,
   );
-
   $options['expanded'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Automatically show all menu items as expanded.'),
-    'default' => TRUE,
+    '#default_value' => TRUE,
   );
-
   $options['flat'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Add all menu items to the same level rather than retaining term hierarchy.'),
-    'default' => FALSE,
+    '#default_value' => FALSE,
   );
 
   return $options;
@@ -985,14 +945,15 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
             $term = taxonomy_term_load($t->tid);
             $display_num = '';
             $num = _taxonomy_menu_term_count($t->tid);
+            $config = config('taxonomy_menu.vocabulary.' . $t->vocabulary);
 
             // If hide menu is selected and the term count is 0 and the term
             // has no children then do not create the menu item.
-            if ($num == 0 && variable_get(_taxonomy_menu_build_variable('hide_empty_terms', $t->vocabulary), FALSE) && !_taxonomy_menu_children_has_nodes($t->tid, $t->vocabulary)) {
+            if ($num == 0 && $config->get('hide_empty_terms') && !_taxonomy_menu_children_has_nodes($t->tid, $t->vocabulary)) {
               $display_num = '';
             }
             // If display number is selected and $num > 0 then change the title.
-            elseif (variable_get(_taxonomy_menu_build_variable('display_num', $t->vocabulary), FALSE)) {
+            elseif ($config->get('display_num')) {
               $display_num = " ($num)";
             }
 
@@ -1003,7 +964,7 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
 
             $term = i18n_taxonomy_localize_terms($term);
             $item['title'] = $item['link_title'] = $term->name . $display_num;
-            if (variable_get(_taxonomy_menu_build_variable('term_item_description', $t->vocabulary), FALSE)) {
+            if ($config->get('term_item_description')) {
               $item['options']['attributes']['title'] = check_plain(strip_tags($term->description));
             }
           }

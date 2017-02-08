@@ -7,24 +7,26 @@
 /**
  * Starts a batch operation.
  *
- * @param int $vid
- *   Vocabulary ID.
+ * @param int $vocabulary
+ *   Vocabulary machine name.
  */
-function _taxonomy_menu_insert_link_items_batch($vid) {
-  $depth = variable_get(_taxonomy_menu_build_variable('max_depth', $vid), 0);
+function taxonomy_menu_insert_link_items_batch($vocabulary) {
+  $config = config('taxonomy_menu.vocabulary.' . $vocabulary);
+  $depth = $config->get('max_depth');
   if ($depth == 0) {
     $depth = NULL;
   }
-  $terms = taxonomy_get_tree($vid, 0, $depth, TRUE);
-  $menu_name = variable_get(_taxonomy_menu_build_variable('vocab_menu', $vid), FALSE);
+
+  $terms = taxonomy_get_tree($vocabulary, 0, $depth, TRUE);
+  $menu_name = $config->get('vocab_menu');
 
   $batch = array(
     // An array of callbacks and arguments for the callbacks.
     'operations' => array(
-      array('_taxonomy_menu_insert_link_items_process', array($terms, $menu_name)),
+      array('taxonomy_menu_insert_link_items_process', array($terms, $menu_name)),
     ),
     // A callback to be used when the batch finishes.
-    'finished' => '_taxonomy_menu_insert_link_items_success',
+    'finished' => 'taxonomy_menu_insert_link_items_success',
     // A title to be displayed to the end user when the batch starts.
     'title' => t('Rebuilding Taxonomy Menu'),
     // An initial message to be displayed to the end user when the batch starts.
@@ -36,6 +38,7 @@ function _taxonomy_menu_insert_link_items_batch($vid) {
     'error_message' => t('The Taxonomy Menu rebuild process encountered an error.'),
     'redirect' => 'admin/structure/taxonomy',
   );
+
   batch_set($batch);
   batch_process();
 }
@@ -50,9 +53,9 @@ function _taxonomy_menu_insert_link_items_batch($vid) {
  * @param array $context
  *   Batch context array.
  *
- * @see _taxonomy_menu_insert_link_items_batch().
+ * @see taxonomy_menu_insert_link_items_batch().
  */
-function _taxonomy_menu_insert_link_items_process($terms, $menu_name, &$context) {
+function taxonomy_menu_insert_link_items_process($terms, $menu_name, &$context) {
   _taxonomy_menu_batch_init_context($context, $start, $end, 10);
 
   // Loop through $terms to process each term.
@@ -70,9 +73,9 @@ function _taxonomy_menu_insert_link_items_process($terms, $menu_name, &$context)
 /**
  * Batch finished callback: sets a message stating the menu has been updated.
  *
- * @see _taxonomy_menu_insert_link_items_batch().
+ * @see taxonomy_menu_insert_link_items_batch().
  */
-function _taxonomy_menu_insert_link_items_success() {
+function taxonomy_menu_insert_link_items_success() {
   // @todo state menu name here.
   backdrop_set_message(t('The Taxonomy Menu has been updated.'));
 }
@@ -111,7 +114,7 @@ function _taxonomy_menu_batch_init_context(&$context, &$start, &$end, $items) {
  * @param str $msg
  *   Message for the progress bar.
  *
- * @see _taxonomy_menu_insert_link_items_process().
+ * @see taxonomy_menu_insert_link_items_process().
  */
 function _taxonomy_menu_batch_update_context(&$context, $end, $total, $msg) {
   if ($end > $total) {
