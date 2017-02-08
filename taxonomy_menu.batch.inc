@@ -73,8 +73,8 @@ function _taxonomy_menu_insert_link_items_process($terms, $menu_name, &$context)
  * @see _taxonomy_menu_insert_link_items_batch().
  */
 function _taxonomy_menu_insert_link_items_success() {
-  // TODO state menu name here.
-  drupal_set_message(t('The Taxonomy Menu has been updated.'));
+  // @todo state menu name here.
+  backdrop_set_message(t('The Taxonomy Menu has been updated.'));
 }
 
 /**

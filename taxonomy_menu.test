@@ -7,7 +7,7 @@
 /**
  * Class with common helper methods.
  */
-class TaxonomyMenuWebTestCase extends DrupalWebTestCase {
+class TaxonomyMenuWebTestCase extends BackdropWebTestCase {
 
   /**
    * Returns a new vocabulary with random properties.
@@ -17,7 +17,7 @@ class TaxonomyMenuWebTestCase extends DrupalWebTestCase {
     $vocabulary = new stdClass();
     $vocabulary->name = $this->randomName();
     $vocabulary->description = $this->randomName();
-    $vocabulary->machine_name = drupal_strtolower($this->randomName());
+    $vocabulary->machine_name = backdrop_strtolower($this->randomName());
     $vocabulary->help = '';
     $vocabulary->nodes = array('article' => 'article');
     $vocabulary->weight = mt_rand(0, 10);
@@ -77,8 +77,8 @@ class TaxonomyMenuUnitTest extends TaxonomyMenuWebTestCase {
 
   function setUp() {
     parent::setUp('taxonomy_menu');
-    $admin_user = $this->drupalCreateUser(array('access administration pages', 'administer blocks', 'administer taxonomy', 'administer menu', 'administer nodes', 'create article content', 'create page content', 'edit any article content', 'edit any page content', 'delete any article content', 'delete any page content', 'access content overview'));
-    $this->drupalLogin($admin_user);
+    $admin_user = $this->backdropCreateUser(array('access administration pages', 'administer blocks', 'administer taxonomy', 'administer menu', 'administer nodes', 'create article content', 'create page content', 'edit any article content', 'edit any page content', 'delete any article content', 'delete any page content', 'access content overview'));
+    $this->backdropLogin($admin_user);
     $this->vocabulary = $this->createVocabulary();
     $this->term = $this->createTerm($this->vocabulary);
   }
@@ -86,7 +86,7 @@ class TaxonomyMenuUnitTest extends TaxonomyMenuWebTestCase {
   function testTaxonomyMenuCRUD() {
     $edit = array();
     $edit['taxonomy_menu[vocab_parent]'] = 'main-menu:0';
-    $this->drupalPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
 
     $this->assertResponse(200);
 
@@ -95,13 +95,13 @@ class TaxonomyMenuUnitTest extends TaxonomyMenuWebTestCase {
 
     $term = $this->term;
     taxonomy_term_delete($term->tid);
-    $this->drupalGet('<front>');
+    $this->backdropGet('<front>');
 
     $this->assertNoLink($term->name);
 
-    $node = $this->drupalCreateNode();
-    $this->drupalPost("node/$node->nid/delete", array(), t('Delete'));
-    $this->drupalGet("node/$node->nid");
+    $node = $this->backdropCreateNode();
+    $this->backdropPost("node/$node->nid/delete", array(), t('Delete'));
+    $this->backdropGet("node/$node->nid");
     $this->assertResponse(404);
 
   }
@@ -110,28 +110,28 @@ class TaxonomyMenuUnitTest extends TaxonomyMenuWebTestCase {
     // Create a custom menu.
     $edit = array();
     $custom_name = $this->randomName(16);
-    $machine_name = drupal_substr(hash('sha256', $custom_name), 0, MENU_MAX_MENU_NAME_LENGTH_UI);
+    $machine_name = backdrop_substr(hash('sha256', $custom_name), 0, MENU_MAX_MENU_NAME_LENGTH_UI);
     $edit['title'] = $custom_name;
     $edit['menu_name'] = $machine_name;
-    $this->drupalPost('admin/structure/menu/add', $edit, 'Save');
+    $this->backdropPost('admin/structure/menu/add', $edit, 'Save');
 
     // Move the menu block to a region.
     $edit = array();
     $edit['blocks[menu_menu-' . $machine_name . '][region]'] = 'sidebar_first';
-    $this->drupalPost('admin/structure/block', $edit, 'Save blocks');
+    $this->backdropPost('admin/structure/block', $edit, 'Save blocks');
     $this->assertResponse(200);
 
     $edit = array();
     $edit['taxonomy_menu[vocab_parent]'] = 'menu-' . $machine_name . ':0';
-    $this->drupalPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
 
     $term = $this->term;
-    $this->drupalGet('<front>');
+    $this->backdropGet('<front>');
     $this->assertLink($term->name);
 
     $term = $this->term;
     taxonomy_term_delete($term->tid);
-    $this->drupalGet('<front>');
+    $this->backdropGet('<front>');
 
     $this->assertNoLink($term->name);
   }
@@ -167,8 +167,8 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
 
   function setUp() {
     parent::setUp('taxonomy_menu');
-    $admin_user = $this->drupalCreateUser(array('access administration pages', 'create article content', 'administer blocks', 'administer taxonomy', 'administer menu'));
-    $this->drupalLogin($admin_user);
+    $admin_user = $this->backdropCreateUser(array('access administration pages', 'create article content', 'administer blocks', 'administer taxonomy', 'administer menu'));
+    $this->backdropLogin($admin_user);
     $this->vocabulary = $this->createVocabulary();
     $this->terms = array();
     foreach ($this->forest as $name => $children) {
@@ -180,7 +180,7 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
   function testTaxonomyMenuHierarchy() {
     $edit = array();
     $edit['taxonomy_menu[vocab_parent]'] = 'navigation:0';
-    $this->drupalPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
 
     $this->assertResponse(200);
 
@@ -200,12 +200,12 @@ class TaxonomyMenuHierarchyTest extends TaxonomyMenuWebTestCase {
     $edit = array();
     $edit['taxonomy_menu[options][expanded]'] = FALSE;
     //$edit['taxonomy_menu[options][rebuild]'] = '1'; // Rebuild menu on submit
-    $this->drupalPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
+    $this->backdropPost('admin/structure/taxonomy/' . $this->vocabulary->machine_name . '/edit', $edit, 'Save');
     $this->assertResponse(200);
-    //$this->drupalGet('admin/structure/taxonomy/'.  $this->vocabulary->machine_name . '/edit');
+    //$this->backdropGet('admin/structure/taxonomy/'.  $this->vocabulary->machine_name . '/edit');
 
     // We should have links to the first level of the hierarchy only
-    $this->drupalGet('<front>');
+    $this->backdropGet('<front>');
     foreach ($this->terms as $term)  {
       $this->assertLink($term->name);
       foreach ($term->children as $child) {
