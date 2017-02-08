@@ -91,6 +91,8 @@ function taxonomy_menu_insert_link_items_success() {
  *   The end item of this pass.
  * @param int $items
  *   The number of items to process in this pass.
+ *
+ * @see taxonomy_menu_insert_link_items_process().
  */
 function _taxonomy_menu_batch_init_context(&$context, &$start, &$end, $items) {
   // Initialize sandbox the first time through.

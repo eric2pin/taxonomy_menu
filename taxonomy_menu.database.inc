@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Database functions
+ * Functions that perform database operations.
  */
 
 /**
