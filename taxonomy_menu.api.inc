@@ -35,7 +35,7 @@ function hook_taxonomy_menu_options() {
  * Update the taxonomy menu entry when being inserted.
  *
  * @param array $item
- *   Taxonomy menu item array with the following key/value pairs:
+ *   A taxonomy menu item array with the following key/value pairs:
  *     'tid': The term id.
  *     'name': New menu name.
  *     'description': New menu description, used for the title attribute.
@@ -43,16 +43,20 @@ function hook_taxonomy_menu_options() {
  *     'vocabulary': Vocabulary machine name.
  *     'ptid': The new parent tid.
  *     'remove': If this is set to TRUE then the $item is not added as a menu.
+ *
+ * @return array $item
+ *   The modified taxonomy menu item.
  */
-function hook_taxonomy_menu_insert(&$item) {
-
+function hook_taxonomy_menu_insert($item) {
+  // Modify $item here.
+  return $item;
 }
 
 /**
  * Update the taxonomy menu entry when being updated.
  *
  * @param array $item
- *   Taxonomy menu item array with the following key/value pairs:
+ *   A taxonomy menu item array with the following key/value pairs:
  *     'tid': The term id.
  *     'name': New menu name.
  *     'description': New menu description, used for the title attribute.
@@ -60,16 +64,20 @@ function hook_taxonomy_menu_insert(&$item) {
  *     'vocabulary': Vocabulary machine name.
  *     'ptid': The new parent tid.
  *     'remove': If this is set to TRUE then the $item is not added as a menu.
+ *
+ * @return array $item
+ *   The modified taxonomy menu item.
  */
-function hook_taxonomy_menu_update(&$item) {
-
+function hook_taxonomy_menu_update($item) {
+  // Modify $item here.
+  return $item;
 }
 
 /**
  * Update the taxonomy menu entry when being deleted.
  *
  * @param array $item
- *   Taxonomy menu item array with the following key/value pairs:
+ *   A taxonomy menu item array with the following key/value pairs:
  *     'tid': The term id.
  *     'name': New menu name.
  *     'description': New menu description, used for the title attribute.
@@ -77,7 +85,11 @@ function hook_taxonomy_menu_update(&$item) {
  *     'vocabulary': Vocabulary machine name.
  *     'ptid': The new parent tid.
  *     'remove': If this is set to TRUE then the $item is not added as a menu.
+ *
+ * @return array $item
+ *   The modified taxonomy menu item.
  */
-function hook_taxonomy_menu_delete(&$item) {
-
+function hook_taxonomy_menu_delete($item) {
+  // Modify $item here.
+  return $item;
 }

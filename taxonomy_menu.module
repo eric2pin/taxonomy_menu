@@ -415,19 +415,6 @@ function _taxonomy_menu_taxonomy_termapi_helper($term, $operation) {
       'mlid' => _taxonomy_menu_get_mlid($term->tid, $term->vocabulary),
     );
 
-    switch ($operation) {
-      case 'insert':
-        $text = 'Added term %term to taxonomy menu %menu_name.';
-        break;
-      case 'update':
-        $text = 'Updated term %term in taxonomy menu %menu_name.';
-        break;
-      case 'delete':
-        $text = 'Deleted term %term from taxonomy menu %menu_name.';
-        break;
-    }
-    $message = t($text, array('%term' => $term->name, '%menu_name' => $menu_name));
-
     // Run function.
     taxonomy_menu_handler($operation, $item);
 
@@ -548,10 +535,16 @@ function taxonomy_menu_handler($op, $args = array(), $node = NULL, $item = array
   }
 
   // Let other modules make edits.
-  $hook = 'taxonomy_menu_' . $op;
-  foreach (module_implements($hook) as $module) {
-    $function = $module . '_' . $hook;
-    $function($item);
+  switch ($op) {
+    case 'insert':
+      $item = module_invoke_all('taxonomy_menu_insert', $item);
+      break;
+    case 'update':
+      $item = module_invoke_all('taxonomy_menu_update', $item);
+      break;
+    case 'delete':
+      $item = module_invoke_all('taxonomy_menu_delete', $item);
+      break;
   }
 
   // Update the menu and return the mlid if the remove element is not true.
@@ -673,21 +666,6 @@ function _taxonomy_menu_save($item) {
 }
 
 /**
- * Implements hook_taxonomy_menu_delete().
- *
- * @param array $item
- *   Taxonomy menu item array, containing the following key/value pairs:
- *     'vocabulary': Vocabulary machine name.
- *     'tid': Taxonomy term ID.
- *     'mlid': Menu link ID.
- */
-function taxonomy_menu_taxonomy_menu_delete(&$item) {
-  menu_link_delete($item['mlid']);
-  _taxonomy_menu_delete_item($item['vocabulary'], $item['tid']);
-  unset($item['mlid']);
-}
-
-/**
  * Helper function: Creates the initial $item array.
  *
  * @param $args
@@ -778,7 +756,10 @@ function _taxonomy_menu_children_has_nodes($tid, $vid, $return = FALSE) {
  * Helper function: Inserts and updates menu along with taxonomy changes.
  *
  * @param array $item
- *   Taxonomy menu item.
+ *   Taxonomy menu item, which has the following keys:
+ *     'tid': Taxonomy term id.
+ *     'vocabulary': Vocabulary machine name.
+ *     'mlid': Menu link iD.
  *
  * @return array
  *   Taxonomy meny item.
@@ -812,39 +793,31 @@ function _taxonomy_menu_item($item) {
 
 /**
  * Implements hook_taxonomy_menu_insert().
- *
- * @param array $item
- *   Taxonomy menu item array with the following key/value pairs:
- *     'tid': The term id (if 0 then updating the vocab as an item).
- *     'name': New menu name.
- *     'description': New menu description, used for the title attribute.
- *     'weight': New menu weight.
- *     'vid': The new vocabulary's id.
- *     'ptid': The new parent tid.
- *     'remove': If this is set to TRUE then the $item is not added as a menu.
- *
- * @return array $item
- *   Taxonomy menu item.
  */
-function taxonomy_menu_taxonomy_menu_insert(&$item) {
+function taxonomy_menu_taxonomy_menu_insert($item) {
   $item = _taxonomy_menu_item($item);
+
+  return $item;
 }
 
 /**
  * Implements hook_taxonomy_menu_update().
- *
- * @param array $item
- *   Taxonomy menu item array with the following key/value pairs:
- *     'tid': The term id (if 0 then updating the vocab as an item).
- *     'name': New menu name.
- *     'description': New menu description, used for the title attribute.
- *     'weight': New menu weight.
- *     'vid': The new vocabulary's id.
- *     'ptid': The new parent tid.
- *     'remove': If this is set to TRUE then the $item is not added as a menu.
  */
-function taxonomy_menu_taxonomy_menu_update(&$item) {
+function taxonomy_menu_taxonomy_menu_update($item) {
   $item = _taxonomy_menu_item($item);
+
+  return $item;
+}
+
+/**
+ * Implements hook_taxonomy_menu_delete().
+ */
+function taxonomy_menu_taxonomy_menu_delete($item) {
+  menu_link_delete($item['mlid']);
+  _taxonomy_menu_delete_item($item['vocabulary'], $item['tid']);
+  unset($item['mlid']);
+
+  return $item;
 }
 
 /**
@@ -935,31 +908,26 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
   if (module_exists('i18n_taxonomy')) {
     // In case of localized terms, use term translation for menu title.
     if ($item['module'] == 'taxonomy_menu') {
-      $t = _taxonomy_menu_get_item($item['mlid']);
+      $record = _taxonomy_menu_get_item($item['mlid']);
       // Only translate when term exist (may occur with stray menu item).
-      if ($t) {
+      if ($record) {
         // Only translate when translation mode is set to localize.
-        if (i18n_taxonomy_vocabulary_mode($t->vocabulary, I18N_MODE_LOCALIZE)) {
+        if (i18n_taxonomy_vocabulary_mode($record->vocabulary, I18N_MODE_LOCALIZE)) {
           // This is a term.
-          if ($t->tid > 0) {
-            $term = taxonomy_term_load($t->tid);
+          if ($record->tid > 0) {
+            $term = taxonomy_term_load($record->tid);
             $display_num = '';
-            $num = _taxonomy_menu_term_count($t->tid);
-            $config = config('taxonomy_menu.vocabulary.' . $t->vocabulary);
+            $num = _taxonomy_menu_term_count($record->tid);
+            $config = config('taxonomy_menu.vocabulary.' . $record->vocabulary);
 
             // If hide menu is selected and the term count is 0 and the term
             // has no children then do not create the menu item.
-            if ($num == 0 && $config->get('hide_empty_terms') && !_taxonomy_menu_children_has_nodes($t->tid, $t->vocabulary)) {
+            if ($num == 0 && $config->get('hide_empty_terms') && !_taxonomy_menu_children_has_nodes($record->tid, $record->vocabulary)) {
               $display_num = '';
             }
             // If display number is selected and $num > 0 then change the title.
             elseif ($config->get('display_num')) {
               $display_num = " ($num)";
-            }
-
-            if ($item['title'] != ($term->name . $display_num)) {
-              // Should not happen.
-              watchdog('error', 'Menu and taxonomy name mismatch: @title != @name', array('@title' => $item['title'], '@name' => $term->name . $display_num));
             }
 
             $term = i18n_taxonomy_localize_terms($term);
