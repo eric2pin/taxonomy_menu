@@ -102,10 +102,7 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
 }
 
 /**
- * Submit handler for the extra settings added to the taxonomy vocab form.
- *
- * Check to see if the user has selected a different menu, and only rebuild
- * if this is the case.
+ * Submit handler: Saves extra settings added to the taxonomy vocab form.
  */
 function taxonomy_menu_vocab_submit($form, &$form_state) {
   $vocabulary = $form_state['values']['machine_name'];
@@ -183,7 +180,7 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
 }
 
 /**
- * Submit handler, reacting on form ID: taxonomy_overview_terms
+ * Submit handler: Reacts to form ID: taxonomy_overview_terms.
  */
 function taxonomy_menu_overview_submit(&$form, &$form_state) {
   // Only sync if taxonomy_menu is enabled for this vocab and the 'sync'
@@ -234,7 +231,7 @@ function taxonomy_menu_overview_submit(&$form, &$form_state) {
 }
 
 /**
- * Rebuilds a menu.
+ * Helper function: Rebuilds a taxonomy menu.
  *
  * @param sting $vocabulary
  *   Vocabulary machine name.
@@ -274,7 +271,7 @@ function _taxonomy_menu_check_variable($variable, $new_value) {
 }
 
 /**
- * Updates the menu items.
+ * Helper function: Updates the menu items.
  *
  * @param string $vocabulary
  *   Vocabulary machine name.
@@ -427,7 +424,7 @@ function taxonomy_menu_node_delete($node) {
 }
 
 /**
- * Abstraction of hook_taxonomy_term_<operation>()
+ * Helper function: Abstraction of hook_taxonomy_term_<operation>()
  */
 function _taxonomy_menu_taxonomy_termapi_helper($term, $operation) {
   // Only sync if taxonomy_menu is enabled for this vocab and the 'sync'
@@ -470,7 +467,7 @@ function _taxonomy_menu_taxonomy_termapi_helper($term, $operation) {
 }
 
 /**
- * Builds argument arrays calls taxonomy_menu_handler.
+ * Helper function: Builds arguments for taxonomy_menu_handler().
  *
  * @param string $op
  *   The operation to be performed [update|insert|delete]
@@ -521,12 +518,12 @@ function _taxonomy_menu_nodeapi_helper($op, $terms = array(), $node) {
 }
 
 /**
- * Updates all parent items.
+ * Helper function: Updates all parent items.
  *
- * @param string $op
- *   options are 'insert', 'update', 'delete' or path.
- * @param $node
- *   The node object.
+ * @param string $term
+ *   Taxonomy term.
+ * @param $menu_name
+ *   Machine name of the menu.
  */
 function _taxonomy_menu_update_all_parents($term, $menu_name) {
   $parents = taxonomy_term_load_parents($term->tid);
@@ -549,18 +546,18 @@ function _taxonomy_menu_update_all_parents($term, $menu_name) {
  * Taxonomy Menu Handler: Creates a menu item for each taxonomy term.
  *
  * @param $op
- *   options are 'insert', 'update', 'delete' or path.
+ *   options are 'insert', 'update', or 'delete'.
  * @param $args
  *  if $op == 'insert' then args is an array with the following key/value pairs:
- *     'term': taxonomy term object,
+ *     'term': Taxonomy term object.
  *     'menu_name' : menu that the item is set to apply to
- *  if $op == 'delete' then then args is an array with the following key/value pairs:
- *     'tid': TermID
- *     'mlid': Menu ID
  *  if $op == 'update' then then args is an array with the following key/value pairs:
- *     'term': term object,
+ *     'term': TRaxonomy term object.
  *     'menu_name': menu that the item is set to apply to
- *     'mlid': Menu ID
+ *     'mlid': Menu link ID.
+ *  if $op == 'delete' then then args is an array with the following key/value pairs:
+ *     'tid': Term ID.
+ *     'mlid': Menu link ID.
  * @param $node
  *   The node object.
  * @param $item array
@@ -589,12 +586,12 @@ function taxonomy_menu_handler($op, $args = array(), $node = NULL, $item = array
 }
 
 /**
- * Adds/Updates a taxonomy menu item.
+ * Helper function: Adds or updates a taxonomy menu item.
  *
  * We use a custom data array $item as a parameter, instead of using a
  * standard taxonomy $term object. This is because this function is also
- * called from hook_taxonomy(), which doesn't have a $term object. Rather
- * have one consistent method of passing the data.
+ * called from hook_taxonomy(), which doesn't have a $term object. This
+ * provides one consistent way of passing the data.
  *
  * @param $item
  *   array with the following key/value pairs:
@@ -714,7 +711,7 @@ function taxonomy_menu_taxonomy_menu_delete(&$item) {
 }
 
 /**
- * Creates the initial $item array.
+ * Helper function: Creates the initial $item array.
  *
  * @param $args
  *   array with the following key/value pairs:
@@ -835,26 +832,6 @@ function _taxonomy_menu_item($item) {
 }
 
 /**
- * Calculates the number of nodes linked to the term and all children.
- *
- * @param int $tid
- *   Taxonomy term ID.
- * @param string $vocabulary
- *   Vocabulary machine name.
- *
- * @return int
- *   Count for how many nodes are in that taxonomy category.
- */
-function taxonomy_menu_term_count_nodes($tid, $vocabulary, $count = 0) {
-  $count += _taxonomy_menu_term_count($tid);
-  $children = taxonomy_term_load_children($tid, $vocabulary);
-  foreach ($children as $tid => $term) {
-    $count = taxonomy_menu_term_count_nodes($term->tid, $term->vocabulary, $count);
-  }
-  return $count;
-}
-
-/**
  * Implements hook_taxonomy_menu_insert().
  *
  * @param array $item
@@ -892,8 +869,7 @@ function taxonomy_menu_taxonomy_menu_update(&$item) {
 }
 
 /**
- * Creates a form array of taxonomy menu options.
- * Invokes hook_taxonomy_menu_options().
+ * Helper function: Creates a form array of taxonomy menu options.
  *
  * @param $vocabulary
  *   Vocabulary machine name.
@@ -992,11 +968,8 @@ function taxonomy_menu_taxonomy_menu_options() {
   return $options;
 }
 
-
 /**
  * Implements hook_translated_menu_link_alter().
- *
- * Translate menu links on the fly by using term translations.
  */
 function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
   if (module_exists('i18n_taxonomy')) {
@@ -1045,7 +1018,7 @@ function taxonomy_menu_translated_menu_link_alter(&$item, $map) {
 }
 
 /**
- * Gets term depth from a tid.
+ * Helper function: Gets term depth from a tid.
  *
  * @param $tid
  *   Taxonomy term ID.
