@@ -87,25 +87,24 @@ function _taxonomy_menu_delete_all($vocabulary) {
  *   Array of taxonomy term IDs.
  */
 function _taxonomy_menu_get_node_terms($node) {
-  // Get the taxonomy fields.
   $tids = array();
-  $result = db_query("SELECT field_name FROM {field_config} WHERE type = 'taxonomy_term_reference'");
-  foreach ($result as $field) {
-    $field_name = $field->field_name;
-
-    if (isset($node->$field_name)) {
-      $tid_field = $node->$field_name;
-
-      // Loop through all the languages.
-      foreach ($tid_field as $tid_field_languages) {
-
-        // Loop through all the terms.
-        foreach ($tid_field_languages as $tid) {
-          $tids[] = $tid['tid'];
+  $fields = field_info_fields();
+  foreach ($fields as $field_name => $field) {
+    if ($field['type'] == 'taxonomy_term_reference') {
+      if (isset($node->$field_name)) {
+        // Get the term field.
+        $tid_field = $node->$field_name;
+        // Loop through all the languages.
+        foreach ($tid_field as $tid_field_languages) {
+          // Loop through all the terms.
+          foreach ($tid_field_languages as $tid) {
+            $tids[] = $tid['tid'];
+          }
         }
       }
     }
   }
+
   return $tids;
 }
 
