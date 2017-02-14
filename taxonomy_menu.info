@@ -1,5 +1,5 @@
 type           = module
-name           = Taxonomy menu
+name           = Taxonomy Menu
 description    = Adds links to taxonomy terms into a menu.
 backdrop       = 1.x
 
