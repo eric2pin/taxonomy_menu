@@ -15,7 +15,9 @@ Installation
   (admin/structure/taxonomy) and click "Configure" for the vocabulary you would
   like added into the menu.
 
-- On the configuration page you should see new settings for Taxonomy Menu.
+- On the configuration page you should see new settings for Taxonomy Menu:
+
+![Taxonomy Menu settings](screenshot.png?raw=true "Taxonomy Menu settings")
 
 Documentation
 -------------
