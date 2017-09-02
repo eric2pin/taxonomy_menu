@@ -224,7 +224,7 @@ function taxonomy_menu_overview_submit(&$form, &$form_state) {
     $sync = $config->get('sync');
     if ($menu_name && $sync) {
       // Update all menu items (do not rebuild the menu).
-      $message = _taxonomy_menu_update_link_items($vid);
+      $message = _taxonomy_menu_update_link_items($vocabulary);
 
       // Report status.
       if (isset($message)) {
@@ -467,10 +467,10 @@ function _taxonomy_menu_nodeapi_helper($op, $terms = array(), $node) {
       // Build argument array to save menu_item.
       $args = array(
         'tid' => $term->tid,
-        'vid' => $term->vid,
+        'vocabulary' => $term->vocabulary,
         'term' => $term,
         'menu_name' => $menu_name,
-        'mlid' => _taxonomy_menu_get_mlid($term->tid, $term->vid),
+        'mlid' => _taxonomy_menu_get_mlid($term->tid, $term->vocabulary),
       );
 
       if ($op == 'delete') {
