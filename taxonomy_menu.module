@@ -109,13 +109,13 @@ function taxonomy_menu_form_alter(&$form, &$form_state, $form_id) {
 
     // Add an extra submit handler to save these settings.
     $form['#submit'][] = 'taxonomy_menu_vocab_submit';
-
   }
+
   elseif ($form_id == "taxonomy_overview_terms") {
     // Add an extra submit handler to sync the rearranged terms with menu.
-    // @ TODO: using hook_taxonomy_vocabulary_update is nicer then callback,
-    // but gives less info and does not always fire.
     $form['#submit'][] = 'taxonomy_menu_overview_submit';
+    // @ TODO: using hook_taxonomy_vocabulary_update() is nicer then callback,
+    // but gives less info and does not always fire.
   }
 }
 
@@ -129,7 +129,7 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
   if (is_numeric($form_state['values']['taxonomy_menu']['vocab_parent'])) {
     // Don't want to throw notices.
     $form_state['values']['taxonomy_menu']['vocab_parent'] = '0:0';
-    // If the menu had never been enabled, skip the rest.
+    // If the menu was not previously enabled, skip the rest.
     if (config_get('taxonomy_menu.vocabulary.' . $vocabulary, 'vocab_menu') === NULL) {
       return;
     }
@@ -140,50 +140,74 @@ function taxonomy_menu_vocab_submit($form, &$form_state) {
   $config->set('name', $vocabulary);
   $config->set('label', $form_state['values']['name']);
 
-  // Assume nothing has changed, rebuild menu if it has.
-  $changed = FALSE;
-
   // Split the menu location into menu name and menu item id.
   list($vocab_parent['vocab_menu'], $vocab_parent['vocab_parent']) = explode(':', $form_state['values']['taxonomy_menu']['vocab_parent']);
 
-  // Set the menu name and check for changes
-  if ($config->get('vocab_menu') != $vocab_parent['vocab_menu']) {
-    $changed = TRUE;
-    $config->set('vocab_menu', $vocab_parent['vocab_menu']);
-  }
+  // Init flag variables to avoid notices if changes haven't happened.
+  $changed_menu = FALSE;
+  $change_vocab_item = FALSE;
+  $changed_path = FALSE;
 
-  // Set the menu parent item and check for changes
-  if ($config->get('vocab_parent') != $vocab_parent['vocab_parent']) {
-    $changed = TRUE;
-    $config->set('vocab_parent', $vocab_parent['vocab_parent']);
+  // Set the menu name and check for changes.
+  if ($config->get('vocab_menu') != $vocab_parent['vocab_menu']) {
+    $changed_menu = TRUE;
   }
+  $config->set('vocab_menu', $vocab_parent['vocab_menu']);
+
+  // Set the menu parent item and check for changes.
+  if ($config->get('vocab_parent') != $vocab_parent['vocab_parent']) {
+    $changed_menu = TRUE;
+  }
+  $config->set('vocab_parent', $vocab_parent['vocab_parent']);
 
   // Check each of the options for changes that might need a menu rebuild.
   foreach ($form_state['values']['taxonomy_menu']['options'] as $key => $value) {
+
+    // Check to see if the vocab enable options has changed
+    if ($key == 'voc_item') {
+      if ($config->get($key) != $value) {
+        $change_vocab_item = TRUE;
+      }
+    }
+
     if ($config->get($key) != $value) {
-      $changed = TRUE;
+      // Set checkboxes to boolean.
       if ($form['taxonomy_menu']['options'][$key]['#type'] == 'checkbox') {
-        // Set checkboxes to bool.
         $value = (bool)$value;
       }
       $config->set($key, $value);
+      $changed = TRUE;
     }
   }
 
-  // Save updated config.
+  // Save new or updated config.
   $config->save();
 
-  // Rebuild if rebuild is selected, or anything has changed.
-  if ($form_state['values']['taxonomy_menu']['options']['rebuild'] || $changed) {
-    $message = _taxonomy_menu_rebuild($vocabulary);
+  // These variables make the logic below easier to read.
+  $rebuild = $form_state['values']['taxonomy_menu']['options']['rebuild'];
+  $vocab_menu_enabled = $config->get('vocab_menu');
+
+  // If the menu hasn't changed and the menu is disabled then do not do anything else.
+  if ($rebuild || $changed_menu || (!$changed_menu && ($vocab_menu_enabled == 0))) {
+
+    // Rebuild if rebuild is selected, menu has changed or vocabulary option changed.
+    if ($rebuild || $changed_menu || $change_vocab_item) {
+      $message = _taxonomy_menu_rebuild($vocabulary);
+    }
 
     // If setting has changed and a menu item is enabled, then update all of the menu items.
-    if ($changed && $config->get('vocab_menu')) {
+    elseif ($changed && $vocab_menu_enabled) {
       $message = _taxonomy_menu_update_link_items($vocabulary);
     }
 
     // Do a full menu rebuild in case we have removed the menu or moved it between menus.
     state_set('menu_rebuild_needed', TRUE);
+
+    // Only send a message if one has been created.
+    if (isset($message) && $message) {
+      // Note: $message is already sanitized coming out of its source function.
+      drupal_set_message($message, 'status');
+    }
   }
 }
 
@@ -249,6 +273,7 @@ function taxonomy_menu_overview_submit(&$form, &$form_state) {
  *   Message that is displayed.
  */
 function _taxonomy_menu_rebuild($vocabulary) {
+
   // Remove all of the menu items for this vocabulary
   _taxonomy_menu_delete_all($vocabulary);
 
@@ -270,6 +295,7 @@ function _taxonomy_menu_rebuild($vocabulary) {
  *   Vocabulary machine name.
  */
 function _taxonomy_menu_update_link_items($vocabulary) {
+
   $config = config('taxonomy_menu.vocabulary.' . $vocabulary);
   $menu_name = $config->get('vocab_menu');
   $depth = $config->get('max_depth');
@@ -524,7 +550,7 @@ function _taxonomy_menu_update_all_parents($term, $menu_name) {
  *     'term': Taxonomy term object.
  *     'menu_name' : menu that the item is set to apply to
  *  if $op == 'update' then then args is an array with the following key/value pairs:
- *     'term': TRaxonomy term object.
+ *     'term': Taxonomy term object.
  *     'menu_name': menu that the item is set to apply to
  *     'mlid': Menu link ID.
  *  if $op == 'delete' then then args is an array with the following key/value pairs:
@@ -539,6 +565,7 @@ function _taxonomy_menu_update_all_parents($term, $menu_name) {
  *   Menu link ID for the taxonomy menu item.
  */
 function taxonomy_menu_handler($op, $args = array(), $node = NULL, $item = array()) {
+
   // Get the initial $item.
   if (empty($item)) {
     $item = _taxonomy_menu_create_item($args, $node);
@@ -584,8 +611,9 @@ function taxonomy_menu_handler($op, $args = array(), $node = NULL, $item = array
  *     'mlid' => if this is filled in then the mlid will be updated
  */
 function _taxonomy_menu_save($item) {
-  if (empty($item)) return;
-  $insert = TRUE;
+  if (empty($item)) {
+    return;
+  }
 
   $config = config('taxonomy_menu.vocabulary.' . $item['vocabulary']);
   $flatten_menu = $config->get('flat');
@@ -615,26 +643,19 @@ function _taxonomy_menu_save($item) {
   );
 
   // Be sure to load the original menu link to preserve non-standard properties.
-  if (isset($item['mlid']) && !empty($item['mlid']) && $original_link = menu_link_load($item['mlid'])) {
+  $original_link = menu_link_load($item['mlid']);
+
+  if (isset($item['mlid']) && !empty($item['mlid']) && $original_link) {
     $link = array_merge($original_link, $link);
+    $is_hidden = $original_link['hidden'];
   }
   else {
+    $is_hidden = 0;
     $link['options'] = array(
       'attributes' => array(
         'title' => trim($item['description']) ? $item['description'] : $item['name'],
       ),
     );
-  }
-
-  // If passed a mlid then add it.
-  if (isset($item['mlid']) && $item['mlid']) {
-    $link['mlid'] = $item['mlid'];
-    $insert = FALSE;
-    $menu_link = menu_link_load($item['mlid']);
-    $is_hidden = $menu_link['hidden'];
-  }
-  else {
-    $is_hidden = 0;
   }
 
   // @todo i18nmenu needs to be cleaned up to allow translation from other menu
@@ -658,7 +679,7 @@ function _taxonomy_menu_save($item) {
     }
   }
 
-  // Expanded must be and integer.
+  // Expanded must be an integer.
   $link['expanded'] = isset($link['expanded']) ? (int)$link['expanded'] : 0;
 
   // If remove is true then set hidden to 1.
@@ -667,9 +688,6 @@ function _taxonomy_menu_save($item) {
   // Save the menu item.
   if ($mlid = menu_link_save($link)) {
     // If inserting a new menu item then insert a record into the table.
-    if ($insert) {
-      _taxonomy_menu_insert_menu_item($mlid, $item['tid'], $item['vocabulary']);
-    }
     return $mlid;
   }
   else {
