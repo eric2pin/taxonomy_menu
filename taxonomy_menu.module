@@ -531,7 +531,7 @@ function _taxonomy_menu_update_all_parents($term, $menu_name) {
       $item = array(
         'term' => $parent,
         'menu_name' => $menu_name,
-        'mlid' => _taxonomy_menu_get_mlid($parent->tid, $parent->vid),
+        'mlid' => _taxonomy_menu_get_mlid($parent->tid, $parent->vocabulary),
         'remove' => FALSE,
       );
       taxonomy_menu_handler('update', $item);
@@ -764,19 +764,19 @@ function _taxonomy_menu_create_item($args = array(), $node) {
  *
  * @param $tid
  *   Taxonomy term ID.
- * @param $vid
- *   Vocabulary ID.
+ * @param $vocabulary
+ *   Vocabulary machine name.
  *
  * @return boolean
  */
-function _taxonomy_menu_children_has_nodes($tid, $vid, $return = FALSE) {
-  $children = taxonomy_term_load_children($tid, $vid);
+function _taxonomy_menu_children_has_nodes($tid, $vocabulary, $return = FALSE) {
+  $children = taxonomy_term_load_children($tid, $vocabulary);
   foreach ($children as $tid => $term) {
     if (_taxonomy_menu_term_count($tid) > 0) {
       $return = TRUE;
     }
     else {
-      $return = _taxonomy_menu_children_has_nodes($tid, $vid, $return);
+      $return = _taxonomy_menu_children_has_nodes($tid, $vocabulary, $return);
     }
   }
   return $return;
