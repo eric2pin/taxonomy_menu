@@ -469,11 +469,10 @@ function _taxonomy_menu_taxonomy_termapi_helper($term, $operation) {
  *   The operation to be performed [update|insert|delete]
  * @param array $terms
  *   The taxonomy terms.
- *
- * @param $node
+ * @param Node $node
  *   The node object.
  */
-function _taxonomy_menu_nodeapi_helper($op, $terms = array(), $node) {
+function _taxonomy_menu_nodeapi_helper($op, $terms, $node) {
   foreach ($terms as $key => $tid) {
 
     // If taxonomy $term is false, then go to the next $term.
@@ -543,28 +542,28 @@ function _taxonomy_menu_update_all_parents($term, $menu_name) {
 /**
  * Taxonomy Menu Handler: Creates a menu item for each taxonomy term.
  *
- * @param $op
+ * @param $op (string)
  *   options are 'insert', 'update', or 'delete'.
- * @param $args
+ * @param $args (array)
  *  if $op == 'insert' then args is an array with the following key/value pairs:
  *     'term': Taxonomy term object.
  *     'menu_name' : menu that the item is set to apply to
  *  if $op == 'update' then then args is an array with the following key/value pairs:
  *     'term': Taxonomy term object.
- *     'menu_name': menu that the item is set to apply to
+ *     'menu_name': Machine name of the menu that the item is set to apply to.
  *     'mlid': Menu link ID.
  *  if $op == 'delete' then then args is an array with the following key/value pairs:
- *     'tid': Term ID.
+ *     'tid': Taxonomy term ID.
  *     'mlid': Menu link ID.
  * @param $node
- *   The node object.
- * @param $item array
+ *   The node object, or NULL.
+ * @param $item (array)
  *   Taxonomy menu item.
  *
  * @return array
  *   Menu link ID for the taxonomy menu item.
  */
-function taxonomy_menu_handler($op, $args = array(), $node = NULL, $item = array()) {
+function taxonomy_menu_handler($op, $args, $node, $item = array()) {
 
   // Get the initial $item.
   if (empty($item)) {
@@ -699,17 +698,17 @@ function _taxonomy_menu_save($item) {
 /**
  * Helper function: Creates the initial $item array.
  *
- * @param $args
+ * @param array $args
  *   array with the following key/value pairs:
  *     'term': Taxonomy term object, if updating a term.
  *     'menu_name': menu that the item is set to apply to.
  *     'vocabulary': Vocabuary machine name, if editing vocab item.
  *     'mlid': Menu link id.
  *
- * @param $node
+ * @param Node $node
  *   The node object.
  */
-function _taxonomy_menu_create_item($args = array(), $node) {
+function _taxonomy_menu_create_item($args, $node) {
   // If tid <> 0 then we are creating a term item.
   $term = $args['term'];
 
