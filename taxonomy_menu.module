@@ -563,7 +563,7 @@ function _taxonomy_menu_update_all_parents($term, $menu_name) {
  * @return array
  *   Menu link ID for the taxonomy menu item.
  */
-function taxonomy_menu_handler($op, $args, $node, $item = array()) {
+function taxonomy_menu_handler($op, $args, $node = NULL, $item = array()) {
 
   // Get the initial $item.
   if (empty($item)) {
